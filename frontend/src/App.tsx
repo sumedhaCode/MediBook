@@ -35,11 +35,11 @@ const App = () => (
         <BrowserRouter>
           <Routes>
 
-            {/* Public Routes */}
+            {/* PUBLIC */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
 
-            {/* ================= PATIENT ROUTES ================= */}
+            {/* ================= PATIENT ================= */}
             <Route
               path="/patient/search"
               element={
@@ -65,7 +65,7 @@ const App = () => (
               }
             />
 
-            {/* ================= DOCTOR ROUTES ================= */}
+            {/* ================= DOCTOR ================= */}
             <Route
               path="/doctor"
               element={
@@ -91,7 +91,7 @@ const App = () => (
               }
             />
 
-            {/* ================= ADMIN ROUTES ================= */}
+            {/* ================= ADMIN ================= */}
             <Route
               path="/admin"
               element={
