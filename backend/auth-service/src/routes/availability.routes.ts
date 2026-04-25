@@ -8,6 +8,10 @@ const router = Router();
 router.post("/", authMiddleware, async (req: AuthRequest, res) => {
   const { date, slots } = req.body;
 
+  if (!date || !slots) {
+    return res.status(400).json({ error: "Date and slots are required" });
+  }
+
   try {
     const doctor = await prisma.doctor.findUnique({
       where: { userId: req.userId! },
@@ -38,18 +42,22 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
     res.json({ message: "Availability saved" });
 
   } catch (error) {
-    console.error(error);
+    console.error("SAVE AVAILABILITY ERROR:", error);
     res.status(500).json({ error: "Failed to save availability" });
   }
 });
 
 
 // ================= GET AVAILABILITY =================
-// 🔥 FIXED: userId → doctorId mapping
+// 🔥 Uses userId → converts to doctorId
 router.get("/:userId/:date", async (req, res) => {
   const { userId, date } = req.params;
 
   try {
+    if (!userId || !date) {
+      return res.status(400).json({ error: "userId and date required" });
+    }
+
     // 🔥 Convert user → doctor
     const doctor = await prisma.doctor.findUnique({
       where: { userId: Number(userId) },
@@ -64,12 +72,15 @@ router.get("/:userId/:date", async (req, res) => {
         doctorId: doctor.id,
         date,
       },
+      orderBy: {
+        time: "asc",
+      },
     });
 
     res.json(slots);
 
   } catch (error) {
-    console.error(error);
+    console.error("GET AVAILABILITY ERROR:", error);
     res.status(500).json({ error: "Failed to fetch availability" });
   }
 });
