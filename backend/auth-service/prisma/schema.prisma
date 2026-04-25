@@ -23,11 +23,12 @@ model Doctor {
   specialty    String
   experience   Int
   location     String
-  consultation Int     // ₹ price
+  consultation Int
   rating       Float   @default(4.5)
   available    Boolean @default(true)
 
   appointments Appointment[]
+  availability Availability[]   // 🔥 ADD THIS LINE
 }
 model Appointment {
   id        Int      @id @default(autoincrement())
