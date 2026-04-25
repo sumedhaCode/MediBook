@@ -21,15 +21,10 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: "Doctor not found" });
     }
 
-    // 🔥 Delete old slots for that date
     await prisma.availability.deleteMany({
-      where: {
-        doctorId: doctor.id,
-        date,
-      },
+      where: { doctorId: doctor.id, date },
     });
 
-    // 🔥 Insert new slots
     const data = slots.map((s: any) => ({
       doctorId: doctor.id,
       date,
@@ -47,8 +42,31 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-// ================= GET AVAILABILITY =================
-// ✅ Uses doctorId directly, filters only available: true slots
+// ================= GET ALL SLOTS (DOCTOR EDIT VIEW) =================
+// Returns ALL slots (available + unavailable) so doctor can toggle them
+router.get("/manage/:doctorId/:date", authMiddleware, async (req: AuthRequest, res) => {
+  const { doctorId, date } = req.params;
+
+  try {
+    const slots = await prisma.availability.findMany({
+      where: {
+        doctorId: Number(doctorId),
+        date,
+        // ✅ NO available filter — doctor needs to see all slots
+      },
+      orderBy: { time: "asc" },
+    });
+
+    res.json(slots);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch availability" });
+  }
+});
+
+// ================= GET AVAILABLE SLOTS (PATIENT BOOKING VIEW) =================
+// Returns ONLY available: true slots for patient to book
 router.get("/:doctorId/:date", async (req, res) => {
   const { doctorId, date } = req.params;
 
@@ -57,11 +75,9 @@ router.get("/:doctorId/:date", async (req, res) => {
       where: {
         doctorId: Number(doctorId),
         date,
-        available: true, // 🔥 only available slots
+        available: true, // ✅ patient only sees bookable slots
       },
-      orderBy: {
-        time: "asc",
-      },
+      orderBy: { time: "asc" },
     });
 
     res.json(slots);

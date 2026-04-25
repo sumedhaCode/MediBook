@@ -20,14 +20,10 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
 
         <div className="grid grid-cols-2 gap-4">
+          {/* ✅ Only doctors count — removed users card */}
           <Card className="p-4">
-            <p>Total Users</p>
-            <h2 className="text-xl font-bold">{stats.users}</h2>
-          </Card>
-
-          <Card className="p-4">
-            <p>Total Doctors</p>
-            <h2 className="text-xl font-bold">{stats.doctors}</h2>
+            <p className="text-muted-foreground text-sm">Total Doctors</p>
+            <h2 className="text-3xl font-bold mt-1">{stats.doctors}</h2>
           </Card>
         </div>
       </div>
