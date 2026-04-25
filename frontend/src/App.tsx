@@ -19,7 +19,7 @@ import DoctorAppointments from "./pages/doctor/DoctorAppointments";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManageDoctors from "./pages/admin/ManageDoctors";
 import ManageUsers from "./pages/admin/ManageUsers";
-import AllAppointments from "./pages/admin/AllAppointments";
+// ❌ REMOVED: AllAppointments import
 
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -116,14 +116,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/admin/appointments"
-              element={
-                <ProtectedRoute role="admin">
-                  <AllAppointments />
-                </ProtectedRoute>
-              }
-            />
+            {/* ❌ REMOVED: /admin/appointments route */}
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
