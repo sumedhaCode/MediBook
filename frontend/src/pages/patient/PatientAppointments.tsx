@@ -1,94 +1,85 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import API from "@/lib/api";
 import DashboardLayout from "@/components/DashboardLayout";
-
-interface Appointment {
-  id: number;
-  date: string;
-  status: string;
-  doctor: {
-    name: string;
-    specialty?: string;
-  };
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function PatientAppointments() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchAppointments = async () => {
+    try {
+      const res = await API.get("/appointments/my");
+      setAppointments(res.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch
   useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        const token = localStorage.getItem("token");
-
-        const res = await axios.get(
-          "http://localhost:5000/api/appointments/my",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        setAppointments(res.data);
-      } catch (error) {
-        console.error("Failed to fetch appointments", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAppointments();
   }, []);
+
+  // ✅ Auto refresh every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchAppointments, 5000);
+    return () => clearInterval(interval); // cleanup on unmount
+  }, []);
+
+  const pending = appointments.filter(a => a.status === "pending");
+  const upcoming = appointments.filter(a => a.status === "upcoming");
+  const past = appointments.filter(a =>
+    a.status === "completed" || a.status === "cancelled"
+  );
+
+  const Card = ({ appt }: any) => (
+    <div className="p-4 border rounded-lg">
+      <h3 className="font-semibold">{appt.doctor?.name}</h3>
+      <p className="text-sm text-muted-foreground">
+        {appt.doctor?.specialty}
+      </p>
+      <p className="text-sm mt-2">
+        {appt.date} • {appt.time}
+      </p>
+      <p className="text-sm mt-1 capitalize">
+        Status: <strong>{appt.status}</strong>
+      </p>
+    </div>
+  );
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* HEADER */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            My Appointments
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            View and manage your appointments
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold">My Appointments</h1>
 
-        {/* LOADING */}
-        {loading ? (
-          <p>Loading appointments...</p>
-        ) : appointments.length === 0 ? (
-          /* EMPTY STATE */
-          <p>No appointments yet</p>
-        ) : (
-          /* REAL DATA */
-          appointments.map((appt) => (
-            <div
-              key={appt.id}
-              className="p-4 border rounded-lg shadow-sm bg-white"
-            >
-              <h3 className="text-lg font-semibold">
-                {appt.doctor?.name || "Unknown Doctor"}
-              </h3>
+        <Tabs defaultValue="pending">
+          <TabsList>
+            <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
+            <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
+          </TabsList>
 
-              {appt.doctor?.specialty && (
-                <p className="text-sm text-muted-foreground">
-                  {appt.doctor.specialty}
-                </p>
-              )}
+          {loading ? (
+            <p>Loading...</p>
+          ) : (
+            <>
+              <TabsContent value="pending">
+                {pending.length === 0 ? "No pending" : pending.map(a => <Card key={a.id} appt={a} />)}
+              </TabsContent>
 
-              <div className="mt-2 text-sm">
-                <p>
-                  <strong>Date:</strong> {appt.date}
-                </p>
-                <p>
-                  <strong>Status:</strong>{" "}
-                  <span className="capitalize">{appt.status}</span>
-                </p>
-              </div>
-            </div>
-          ))
-        )}
+              <TabsContent value="upcoming">
+                {upcoming.length === 0 ? "No upcoming" : upcoming.map(a => <Card key={a.id} appt={a} />)}
+              </TabsContent>
+
+              <TabsContent value="past">
+                {past.length === 0 ? "No past" : past.map(a => <Card key={a.id} appt={a} />)}
+              </TabsContent>
+            </>
+          )}
+        </Tabs>
       </div>
     </DashboardLayout>
   );

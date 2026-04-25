@@ -30,18 +30,20 @@ export default function BookAppointment() {
       .catch((err) => console.error(err));
   }, [doctorId]);
 
-  // 🔹 FETCH SLOTS (REAL DATA)
+  // 🔹 FETCH SLOTS — uses doctorId directly (not doctor.userId)
   useEffect(() => {
     if (!date || !doctorId) return;
 
-    const formatted = date.toISOString().split("T")[0];
+    const formatted = date.toISOString().split("T")[0]; // e.g. "2026-03-24"
 
-   API.get(`/availability/${doctor.userId}/${formatted}`)
+    // ✅ Fixed: uses doctorId from URL params directly
+    API.get(`/availability/${doctorId}/${formatted}`)
       .then((res) => setSlots(res.data))
       .catch((err) => console.error(err));
+
   }, [date, doctorId]);
 
-  // 🔹 BOOK APPOINTMENT (REAL API)
+  // 🔹 BOOK APPOINTMENT
   const handleBook = async () => {
     if (!date || !selectedSlot) {
       toast.error("Please select a date and time slot");
@@ -144,13 +146,13 @@ export default function BookAppointment() {
                       className={cn(
                         "p-2 rounded border text-sm",
                         !slot.available && "opacity-40 cursor-not-allowed",
-                        selectedSlot === slot.time &&
-                          "border-primary bg-secondary"
+                        selectedSlot === slot.time && "border-primary bg-secondary"
                       )}
                     >
                       {slot.time}
                     </button>
                   ))}
+
                 </div>
               ) : (
                 <p className="text-center text-sm text-muted-foreground">
@@ -167,6 +169,7 @@ export default function BookAppointment() {
               </Button>
             </CardContent>
           </Card>
+
         </div>
       </div>
     </DashboardLayout>

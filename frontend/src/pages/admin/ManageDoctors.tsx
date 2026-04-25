@@ -17,19 +17,24 @@ export default function ManageDoctors() {
     fetchDoctors();
   }, []);
 
-  const handleRemove = async (doc: any) => {
-    const confirm = window.confirm(
-      `Are you sure you want to delete Dr. ${doc.name}?`
-    );
-
-    if (!confirm) return;
+  const handleDelete = async (doc: any) => {
+    if (!confirm(`Delete Dr. ${doc.name}? This cannot be undone.`)) return;
 
     try {
       await API.delete(`/admin/doctors/${doc.id}`);
-      toast.success(`Dr. ${doc.name} removed`);
+      toast.success("Doctor deleted");
       fetchDoctors();
-    } catch (err) {
-      toast.error("Failed to remove doctor");
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
+
+  const toggleStatus = async (doc: any) => {
+    try {
+      await API.patch(`/admin/doctors/${doc.id}/toggle`);
+      fetchDoctors();
+    } catch {
+      toast.error("Update failed");
     }
   };
 
@@ -37,6 +42,8 @@ export default function ManageDoctors() {
     <DashboardLayout>
       <div className="space-y-4">
         <h1 className="text-xl font-bold">Manage Doctors</h1>
+
+        {doctors.length === 0 && <p>No doctors found</p>}
 
         {doctors.map((doc) => (
           <div
@@ -53,17 +60,26 @@ export default function ManageDoctors() {
             <div className="flex items-center gap-3">
               <Badge
                 className={
-                  doc.available
+                  doc.isActive
                     ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-600"
+                    : "bg-gray-200 text-gray-600"
                 }
               >
-                {doc.available ? "Active" : "Inactive"}
+                {doc.isActive ? "Active" : "Inactive"}
               </Badge>
 
               <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toggleStatus(doc)}
+              >
+                Toggle
+              </Button>
+
+              <Button
+                size="sm"
                 variant="destructive"
-                onClick={() => handleRemove(doc)}
+                onClick={() => handleDelete(doc)}
               >
                 Delete
               </Button>

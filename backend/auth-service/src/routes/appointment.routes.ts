@@ -6,33 +6,44 @@ const router = Router();
 
 // BOOK APPOINTMENT
 router.post("/", authMiddleware, async (req: AuthRequest, res) => {
-  const { doctorId, date, time } = req.body; // ✅ added time
-
-  // VALIDATION
-  if (!doctorId || !date) {
-    return res.status(400).json({ error: "doctorId and date are required" });
-  }
+  const { doctorId, date, time } = req.body;
 
   try {
+    // ❌ prevent double booking
+    const exists = await prisma.appointment.findFirst({
+      where: { doctorId, date, time },
+    });
+
+    if (exists) {
+      return res.status(400).json({ error: "Slot already booked" });
+    }
+
     const appointment = await prisma.appointment.create({
       data: {
         userId: req.userId!,
         doctorId,
         date,
-        time: time || "10:00 AM", // ✅ added time with fallback
+        time,
       },
     });
 
-    res.json({
-      message: "Appointment booked",
-      appointment,
+    // 🔥 BLOCK SLOT AFTER BOOKING
+    await prisma.availability.updateMany({
+      where: {
+        doctorId,
+        date,
+        time,
+      },
+      data: { available: false },
     });
+
+    res.json({ message: "Booked", appointment });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to book appointment" });
   }
 });
-
 // GET MY APPOINTMENTS (PATIENT)
 router.get("/my", authMiddleware, async (req: AuthRequest, res) => {
   try {

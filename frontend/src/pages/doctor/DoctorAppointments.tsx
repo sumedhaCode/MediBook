@@ -18,7 +18,6 @@ export default function DoctorAppointments() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Reusable fetch function — used on load and after accept/reject
   const fetchAppointments = async () => {
     try {
       const res = await API.get("/appointments/doctor");
@@ -30,25 +29,30 @@ export default function DoctorAppointments() {
     }
   };
 
+  // Initial fetch
   useEffect(() => {
     fetchAppointments();
   }, []);
 
-  // ✅ Fixed — no more nested duplicate function, no more local state update
+  // ✅ Auto refresh every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchAppointments, 5000);
+    return () => clearInterval(interval); // cleanup on unmount
+  }, []);
+
   const handleAccept = async (id: number) => {
     try {
       await API.patch(`/appointments/${id}/status`, { status: "upcoming" });
-      await fetchAppointments(); // 🔥 refetch from backend
+      await fetchAppointments();
     } catch (err) {
       console.error(err);
     }
   };
 
-  // ✅ Fixed — same pattern as handleAccept
   const handleReject = async (id: number) => {
     try {
       await API.patch(`/appointments/${id}/status`, { status: "cancelled" });
-      await fetchAppointments(); // 🔥 refetch from backend
+      await fetchAppointments();
     } catch (err) {
       console.error(err);
     }
@@ -64,7 +68,7 @@ export default function DoctorAppointments() {
     <div className="flex items-center justify-between p-4 rounded-lg border">
       <div>
         <p className="font-medium text-foreground">
-          {appt.patient?.name || "Patient"}
+          {appt.user?.name || "Patient"}
         </p>
         <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">

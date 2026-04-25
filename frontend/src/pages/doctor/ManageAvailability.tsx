@@ -16,147 +16,101 @@ export default function ManageAvailability() {
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 🔹 default slots (only if no data in DB)
   const defaultSlots = [
-    { time: "9:00 AM", available: false },
-    { time: "9:30 AM", available: false },
-    { time: "10:00 AM", available: false },
-    { time: "10:30 AM", available: false },
-    { time: "11:00 AM", available: false },
-    { time: "11:30 AM", available: false },
-    { time: "1:00 PM", available: false },
-    { time: "1:30 PM", available: false },
-    { time: "2:00 PM", available: false },
-    { time: "2:30 PM", available: false },
-    { time: "3:00 PM", available: false },
-    { time: "3:30 PM", available: false },
+    "9:00 AM","9:30 AM","10:00 AM","10:30 AM",
+    "11:00 AM","11:30 AM","1:00 PM","1:30 PM",
+    "2:00 PM","2:30 PM","3:00 PM","3:30 PM"
   ];
 
-  // 🔥 FETCH availability when date changes
+  // 🔥 FETCH doctorId properly
+  const [doctorId, setDoctorId] = useState<number | null>(null);
+
   useEffect(() => {
-    if (!date) return;
+    API.get("/doctors")
+      .then((res) => {
+        const found = res.data.find((d:any) => d.userId === user?.id);
+        if (found) setDoctorId(found.id);
+      });
+  }, [user]);
 
-    const fetchSlots = async () => {
-      try {
-        setLoading(true);
+  // 🔥 FETCH availability
+  useEffect(() => {
+    if (!date || !doctorId) return;
 
-        const formatted = date.toISOString().split("T")[0];
+    const formatted = date.toISOString().split("T")[0];
 
-        // ⚠️ IMPORTANT: doctorId = user.id mapping happens in backend
-        const res = await API.get(`/availability/${user?.id}/${formatted}`);
+    setLoading(true);
 
+    API.get(`/availability/${doctorId}/${formatted}`)
+      .then((res) => {
         if (res.data.length === 0) {
-          setSlots(defaultSlots);
+          setSlots(defaultSlots.map(t => ({ time: t, available: false })));
         } else {
           setSlots(res.data);
         }
-      } catch (error) {
-        console.error("Failed to fetch availability", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      })
+      .finally(() => setLoading(false));
 
-    fetchSlots();
-  }, [date]);
+  }, [date, doctorId]);
 
-  // 🔹 toggle slot
   const toggleSlot = (index: number) => {
-    setSlots((prev) =>
+    setSlots(prev =>
       prev.map((s, i) =>
         i === index ? { ...s, available: !s.available } : s
       )
     );
   };
 
-  // 🔥 SAVE to backend
   const handleSave = async () => {
     if (!date) return;
 
-    try {
-      const formatted = date.toISOString().split("T")[0];
+    const formatted = date.toISOString().split("T")[0];
 
-      await API.post("/availability", {
-        date: formatted,
-        slots,
-      });
+    await API.post("/availability", {
+      date: formatted,
+      slots,
+    });
 
-      toast.success("Availability saved successfully!");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to save availability");
-    }
+    toast.success("Saved!");
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Manage Availability
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Set your available time slots for appointments
-          </p>
-        </div>
+      <div className="grid lg:grid-cols-2 gap-6">
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Select Date</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="pointer-events-auto"
-              />
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader><CardTitle>Select Date</CardTitle></CardHeader>
+          <CardContent>
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={setDate}
+            />
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                Time Slots {date && `— ${date.toLocaleDateString()}`}
-              </CardTitle>
-            </CardHeader>
+        <Card>
+          <CardHeader><CardTitle>Time Slots</CardTitle></CardHeader>
+          <CardContent>
 
-            <CardContent>
-              {loading ? (
-                <p>Loading...</p>
-              ) : (
-                <div className="space-y-2">
-                  {slots.map((slot, index) => (
-                    <div
-                      key={index}
-                      className={cn(
-                        "flex items-center justify-between p-3 rounded-lg border",
-                        slot.available
-                          ? "bg-secondary/50"
-                          : "bg-muted/30"
-                      )}
-                    >
-                      <span className="text-sm font-medium">
-                        {slot.time}
-                      </span>
+            {loading ? "Loading..." : slots.map((slot, i) => (
+              <div key={i} className="flex justify-between p-2 border rounded">
+                {slot.time}
+                <Switch
+                  checked={slot.available}
+                  onCheckedChange={() => toggleSlot(i)}
+                />
+              </div>
+            ))}
 
-                      <Switch
-                        checked={slot.available}
-                        onCheckedChange={() => toggleSlot(index)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+            <Button className="mt-4 w-full" onClick={handleSave}>
+              Save Changes
+            </Button>
 
-              <Button className="w-full mt-4" onClick={handleSave}>
-                Save Changes
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
+
       </div>
     </DashboardLayout>
   );
-} 
+}
