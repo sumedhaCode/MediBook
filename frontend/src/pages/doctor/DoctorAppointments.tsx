@@ -25,7 +25,11 @@ export default function DoctorAppointments() {
   }, []);
 
   const handleAccept = async (id: number) => {
-    await API.put(`/appointments/${id}/status`, { status: "upcoming" });
+    const handleAccept = async (id: number) => {
+  await API.patch(`/appointments/${id}/status`, {
+    status: "upcoming",
+  });
+};
 
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: "upcoming" } : a))
@@ -33,7 +37,11 @@ export default function DoctorAppointments() {
   };
 
   const handleReject = async (id: number) => {
-    await API.put(`/appointments/${id}/status`, { status: "cancelled" });
+    const handleReject = async (id: number) => {
+  await API.patch(`/appointments/${id}/status`, {
+    status: "cancelled",
+  });
+};
 
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: "cancelled" } : a))
