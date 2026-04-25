@@ -66,37 +66,43 @@ export default function LoginPage() {
   };
 
   const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      const signupData: Record<string, any> = {
-        name,
-        email,
-        password,
-        role: selectedRole,
-      };
+  e.preventDefault();
+  setIsLoading(true);
+  try {
+    // ✅ Properly typed — matches registerUser exactly
+    const signupData: {
+      name: string;
+      email: string;
+      password: string;
+      role: string;
+      specialty?: string;
+      experience?: number;
+      location?: string;
+      consultation?: number;
+    } = {
+      name,
+      email,
+      password,
+      role: selectedRole,
+    };
 
-      if (selectedRole === "doctor") {
-        signupData.specialty = specialty;
-        signupData.experience = Number(experience) || 0;
-        signupData.location = location;
-        signupData.consultation = Number(consultation) || 0;
-      }
-
-      // Step 1: Register the account
-      await registerUser(signupData);
-
-      // Step 2: Immediately login after registration
-      // ✅ login() takes email + password, returns user with role
-      const user = await login(email, password);
-      navigate(roleConfig[user.role].redirect);
-    } catch (error: any) {
-      console.error("Signup failed:", error.response?.data || error.message);
-      alert(error.response?.data?.error || "Signup failed. Please try again.");
-    } finally {
-      setIsLoading(false);
+    if (selectedRole === "doctor") {
+      signupData.specialty = specialty;
+      signupData.experience = Number(experience) || 0;
+      signupData.location = location;
+      signupData.consultation = Number(consultation) || 0;
     }
-  };
+
+    await registerUser(signupData);
+    const user = await login(email, password);
+    navigate(roleConfig[user.role].redirect);
+  } catch (error: any) {
+    console.error("Signup failed:", error.response?.data || error.message);
+    alert(error.response?.data?.error || "Signup failed. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen gradient-hero flex flex-col">
