@@ -36,6 +36,7 @@ model Appointment {
   userId    Int
   doctorId  Int
   date      String
+  time String
   status    String   @default("pending")
 
   user      User     @relation(fields: [userId], references: [id])

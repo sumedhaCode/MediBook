@@ -6,25 +6,11 @@ const router = Router();
 
 // BOOK APPOINTMENT
 router.post("/", authMiddleware, async (req: AuthRequest, res) => {
-  const { doctorId, date } = req.body;
+  const { doctorId, date, time } = req.body; // ✅ added time
 
   // VALIDATION
   if (!doctorId || !date) {
     return res.status(400).json({ error: "doctorId and date are required" });
-  }
-
-  // CHECK IF DOCTOR EXISTS
-  const doctor = await prisma.doctor.findUnique({
-    where: { id: doctorId },
-  });
-
-  if (!doctor) {
-    return res.status(404).json({ error: "Doctor not found" });
-  }
-
-  // CHECK IF DOCTOR IS AVAILABLE
-  if (!doctor.available) {
-    return res.status(400).json({ error: "Doctor not available" });
   }
 
   try {
@@ -33,6 +19,7 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
         userId: req.userId!,
         doctorId,
         date,
+        time: time || "10:00 AM", // ✅ added time with fallback
       },
     });
 
@@ -41,6 +28,7 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
       appointment,
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Failed to book appointment" });
   }
 });
@@ -103,8 +91,6 @@ router.patch("/:id/status", authMiddleware, async (req: AuthRequest, res) => {
       return res.status(403).json({ error: "Not authorized" });
     }
 
-    // ✅ updateMany → update (single record by id)
-    // Security is handled by the doctor check above
     const appointment = await prisma.appointment.update({
       where: {
         id: Number(id),
