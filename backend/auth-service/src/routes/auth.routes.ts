@@ -24,16 +24,20 @@ router.post("/register", async (req: Request, res: Response) => {
     });
 
     // 2️⃣ If doctor → create doctor profile
-    if (role === "doctor") {
-      await prisma.doctor.create({
-        data: {
-          userId: user.id,
-          name,
-          specialty: "General",   // default
-          experience: 0,
-        },
-      });
-    }
+    // CREATE DOCTOR PROFILE (if role = doctor)
+if (role === "doctor") {
+  await prisma.doctor.create({
+    data: {
+      userId: user.id,
+      name,
+      specialty: "General",
+      experience: 0,
+      location: "India",        // ✅ REQUIRED
+      consultation: 500,        // ✅ REQUIRED (₹)
+      available: true,
+    },
+  });
+}
 
     // 3️⃣ Generate token
     const token = jwt.sign(
