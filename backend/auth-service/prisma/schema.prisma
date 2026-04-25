@@ -17,13 +17,17 @@ model User {
   appointments Appointment[]
 }
 model Doctor {
-  id          Int     @id @default(autoincrement())
-  userId      Int     @unique   // 🔥 ADD THIS
-  name        String
-  specialty   String
-  experience  Int
-  available   Boolean @default(true)
-  appointments Appointment[]   // ✅ ADD THIS
+  id           Int     @id @default(autoincrement())
+  userId       Int     @unique
+  name         String
+  specialty    String
+  experience   Int
+  location     String
+  consultation Int     // ₹ price
+  rating       Float   @default(4.5)
+  available    Boolean @default(true)
+
+  appointments Appointment[]
 }
 model Appointment {
   id        Int      @id @default(autoincrement())

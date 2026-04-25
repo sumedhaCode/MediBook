@@ -16,15 +16,17 @@ router.get("/", async (req, res) => {
 
 // ================= CREATE DOCTOR =================
 router.post("/", authMiddleware, async (req: AuthRequest, res) => {
-  const { name, specialty, experience } = req.body;
+  const { name, specialty, experience, location, consultation } = req.body;
 
   try {
     const doctor = await prisma.doctor.create({
       data: {
-        userId: req.userId!,   // 🔥 LINK USER TO DOCTOR
+        userId: req.userId!,
         name,
         specialty,
         experience,
+        location,
+        consultation,
       },
     });
 
