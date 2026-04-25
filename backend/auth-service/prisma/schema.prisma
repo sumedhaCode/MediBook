@@ -26,9 +26,10 @@ model Doctor {
   consultation Int
   rating       Float   @default(4.5)
   available    Boolean @default(true)
+  isActive     Boolean @default(true) // 🔥 ADD THIS
 
   appointments Appointment[]
-  availability Availability[]   // 🔥 ADD THIS LINE
+  availability Availability[]
 }
 model Appointment {
   id        Int      @id @default(autoincrement())

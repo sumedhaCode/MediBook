@@ -5,13 +5,14 @@ import "dotenv/config";
 import doctorRoutes from "./routes/doctor.routes";
 import appointmentRoutes from "./routes/appointment.routes";
 import availabilityRoutes from "./routes/availability.routes";
-
+import adminRoutes from "./routes/admin.routes";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use("/api/availability", availabilityRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Routes
 app.use("/api/auth", authRoutes);

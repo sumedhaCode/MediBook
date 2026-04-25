@@ -7,7 +7,10 @@ const router = Router();
 // ================= GET ALL DOCTORS =================
 router.get("/", async (req, res) => {
   try {
-    const doctors = await prisma.doctor.findMany();
+    // ✅ Only return active doctors (soft delete filter)
+    const doctors = await prisma.doctor.findMany({
+      where: { isActive: true },
+    });
     res.json(doctors);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch doctors" });
