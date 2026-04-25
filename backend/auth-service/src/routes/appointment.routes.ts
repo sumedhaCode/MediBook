@@ -60,14 +60,22 @@ router.get("/my", authMiddleware, async (req: AuthRequest, res) => {
     res.status(500).json({ error: "Failed to fetch appointments" });
   }
 });
-// GET APPOINTMENTS BY DOCTOR
-router.get("/doctor/:doctorId", async (req, res) => {
-  const { doctorId } = req.params;
 
+// GET DOCTOR APPOINTMENTS (SECURE)
+router.get("/doctor", authMiddleware, async (req: AuthRequest, res) => {
   try {
+    // Find doctor linked to logged-in user
+    const doctor = await prisma.doctor.findUnique({
+      where: { userId: req.userId! },
+    });
+
+    if (!doctor) {
+      return res.status(404).json({ error: "Doctor not found" });
+    }
+
     const appointments = await prisma.appointment.findMany({
       where: {
-        doctorId: Number(doctorId),
+        doctorId: doctor.id,
       },
       include: {
         user: true,
@@ -79,14 +87,26 @@ router.get("/doctor/:doctorId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch doctor appointments" });
   }
 });
+
 // UPDATE APPOINTMENT STATUS
-router.patch("/:id/status", async (req, res) => {
+router.patch("/:id/status", authMiddleware, async (req: AuthRequest, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
   try {
-    const appointment = await prisma.appointment.update({
-      where: { id: Number(id) },
+    const doctor = await prisma.doctor.findUnique({
+      where: { userId: req.userId! },
+    });
+
+    if (!doctor) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    const appointment = await prisma.appointment.updateMany({
+      where: {
+        id: Number(id),
+        doctorId: doctor.id, // 🔥 ensures doctor owns it
+      },
       data: { status },
     });
 

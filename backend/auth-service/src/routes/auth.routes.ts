@@ -8,12 +8,12 @@ const router = Router();
 
 // ================= REGISTER =================
 router.post("/register", async (req: Request, res: Response) => {
-  console.log("REGISTER BODY:", req.body); // 👈 ADD THIS
   const { name, email, password, role } = req.body;
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 1️⃣ Create user
     const user = await prisma.user.create({
       data: {
         name,
@@ -23,19 +23,36 @@ router.post("/register", async (req: Request, res: Response) => {
       },
     });
 
+    // 2️⃣ If doctor → create doctor profile
+    if (role === "doctor") {
+      await prisma.doctor.create({
+        data: {
+          userId: user.id,
+          name,
+          specialty: "General",   // default
+          experience: 0,
+        },
+      });
+    }
+
+    // 3️⃣ Generate token
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET!,
+      { expiresIn: "1d" }
+    );
+
     res.json({
-      message: "User registered",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      message: "User registered successfully",
+      token,
+      user,
     });
+
   } catch (error) {
-    res.status(500).json({ error: "User already exists" });
+    console.error("REGISTER ERROR:", error);  // 🔥 IMPORTANT
+    res.status(500).json({ error: "Registration failed" });
   }
-});
+});  
 
 // ================= LOGIN =================
 router.post("/login", async (req: Request, res: Response) => {

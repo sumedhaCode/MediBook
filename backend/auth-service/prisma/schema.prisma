@@ -18,6 +18,7 @@ model User {
 }
 model Doctor {
   id          Int     @id @default(autoincrement())
+  userId      Int     @unique   // 🔥 ADD THIS
   name        String
   specialty   String
   experience  Int
