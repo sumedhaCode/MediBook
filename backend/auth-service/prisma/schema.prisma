@@ -39,3 +39,12 @@ model Appointment {
   user      User     @relation(fields: [userId], references: [id])
   doctor    Doctor   @relation(fields: [doctorId], references: [id])
 }
+model Availability {
+  id        Int      @id @default(autoincrement())
+  doctorId  Int
+  date      String
+  time      String
+  available Boolean  @default(true)
+
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+}
