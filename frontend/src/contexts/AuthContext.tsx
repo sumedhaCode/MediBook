@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.tsx
 import { createContext, useContext, useState, useEffect } from "react";
 import { loginUser, getMe } from "@/lib/auth";
 import { UserRole } from "@/types";
@@ -20,34 +21,33 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  // 🔁 Auto login if token exists
+  // Auto-login if token already exists in localStorage
   useEffect(() => {
     const token = localStorage.getItem("token");
-
     if (token) {
-      getMe(token)
+      // Token is auto-attached by api.ts interceptor
+      getMe()
         .then((res) => setUser(res.data))
         .catch(() => {
+          // Token expired or invalid — clear it
           localStorage.removeItem("token");
         });
     }
   }, []);
 
-  // 🔐 Login function
   const login = async (email: string, password: string): Promise<User> => {
     const res = await loginUser({ email, password });
 
     const token = res.data.token;
-    localStorage.setItem("token", token);
+    const userData = res.data.user;
 
-    const userRes = await getMe(token);
-    const userData = userRes.data;
+    // Save token — api.ts will auto-attach it from now on
+    localStorage.setItem("token", token);
     setUser(userData);
-    
+
     return userData;
   };
 
-  // 🚪 Logout
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);

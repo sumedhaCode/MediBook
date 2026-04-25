@@ -8,7 +8,7 @@ const router = Router();
 
 // ================= REGISTER =================
 router.post("/register", async (req: Request, res: Response) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, specialty, experience, location, consultation } = req.body;
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -24,20 +24,19 @@ router.post("/register", async (req: Request, res: Response) => {
     });
 
     // 2️⃣ If doctor → create doctor profile
-    // CREATE DOCTOR PROFILE (if role = doctor)
-if (role === "doctor") {
-  await prisma.doctor.create({
-    data: {
-      userId: user.id,
-      name,
-      specialty: "General",
-      experience: 0,
-      location: "India",        // ✅ REQUIRED
-      consultation: 500,        // ✅ REQUIRED (₹)
-      available: true,
-    },
-  });
-}
+    if (role === "doctor") {
+      await prisma.doctor.create({
+        data: {
+          userId: user.id,
+          name,
+          specialty,
+          experience,
+          location,
+          consultation,
+          available: true,
+        },
+      });
+    }
 
     // 3️⃣ Generate token
     const token = jwt.sign(

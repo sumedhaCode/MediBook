@@ -1,3 +1,4 @@
+// src/pages/LoginPage.tsx
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -5,15 +6,33 @@ import { UserRole } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Heart, User, Stethoscope, ShieldCheck } from "lucide-react";
-import { loginUser, registerUser } from "@/lib/auth";
+import { registerUser } from "@/lib/auth";
 
 const roleConfig = {
-  patient: { icon: User, label: "Patient", color: "text-primary", redirect: "/patient/search" },
-  doctor: { icon: Stethoscope, label: "Doctor", color: "text-primary", redirect: "/doctor" },
-  admin: { icon: ShieldCheck, label: "Admin", color: "text-primary", redirect: "/admin" },
+  patient: {
+    icon: User,
+    label: "Patient",
+    redirect: "/patient/search",
+  },
+  doctor: {
+    icon: Stethoscope,
+    label: "Doctor",
+    redirect: "/doctor",
+  },
+  admin: {
+    icon: ShieldCheck,
+    label: "Admin",
+    redirect: "/admin",
+  },
 };
 
 export default function LoginPage() {
@@ -21,67 +40,59 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [specialty, setSpecialty] = useState("");
+  const [experience, setExperience] = useState("");
+  const [location, setLocation] = useState("");
+  const [consultation, setConsultation] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // ✅ login now comes from updated AuthContext (takes email + password)
   const { login } = useAuth();
   const navigate = useNavigate();
 
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsLoading(true);
-
-  try {
-    const res = await loginUser({
-      email,
-      password,
-    });
-
-    console.log("LOGIN RESPONSE:", res.data); // 👈 DEBUG
-
-    const token = res.data.token;
-    const user = res.data.user;
-
-    localStorage.setItem("token", token);
-
-    // 🚨 IMPORTANT: check user exists
-    if (!user || !user.role) {
-      alert("Login failed: no role received");
-      return;
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      // ✅ login() handles token saving + context update
+      const user = await login(email, password);
+      navigate(roleConfig[user.role].redirect);
+    } catch (error: any) {
+      console.error("Login failed:", error.response?.data || error.message);
+      alert(error.response?.data?.error || "Login failed. Check your credentials.");
+    } finally {
+      setIsLoading(false);
     }
-
-    // ✅ ROLE-BASED REDIRECT
-    if (user.role === "patient") {
-      navigate("/patient/search");
-    } else if (user.role === "doctor") {
-      navigate("/doctor");
-    } else if (user.role === "admin") {
-      navigate("/admin");
-    }
-
-  } catch (error: any) {
-    console.error("Login failed:", error.response?.data || error.message);
-    alert(error.response?.data?.error || "Login failed");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await registerUser({
-  name,
-  email,
-  password,
-  role: selectedRole,
-});
+      const signupData: Record<string, any> = {
+        name,
+        email,
+        password,
+        role: selectedRole,
+      };
 
-      // After signup, automatically login
+      if (selectedRole === "doctor") {
+        signupData.specialty = specialty;
+        signupData.experience = Number(experience) || 0;
+        signupData.location = location;
+        signupData.consultation = Number(consultation) || 0;
+      }
+
+      // Step 1: Register the account
+      await registerUser(signupData);
+
+      // Step 2: Immediately login after registration
+      // ✅ login() takes email + password, returns user with role
       const user = await login(email, password);
       navigate(roleConfig[user.role].redirect);
-    } catch (error) {
-      console.error("Signup failed:", error);
-      // TODO: Show error message
+    } catch (error: any) {
+      console.error("Signup failed:", error.response?.data || error.message);
+      alert(error.response?.data?.error || "Signup failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +110,7 @@ const handleLogin = async (e: React.FormEvent) => {
       <div className="flex-1 flex items-center justify-center px-4 pb-12">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl">Welcome to MediBook</CardTitle>
             <CardDescription>Sign in to your account to continue</CardDescription>
           </CardHeader>
           <CardContent>
@@ -109,8 +120,11 @@ const handleLogin = async (e: React.FormEvent) => {
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
 
+              {/* ROLE SELECTOR — only meaningful on signup, shown on both for UX */}
               <div className="mb-6">
-                <Label className="text-sm font-medium mb-3 block">Select Role</Label>
+                <Label className="text-sm font-medium mb-3 block">
+                  Select Role
+                </Label>
                 <div className="grid grid-cols-3 gap-2">
                   {(Object.keys(roleConfig) as UserRole[]).map((role) => {
                     const config = roleConfig[role];
@@ -125,8 +139,20 @@ const handleLogin = async (e: React.FormEvent) => {
                             : "border-border hover:border-primary/30"
                         }`}
                       >
-                        <config.icon className={`h-5 w-5 ${selectedRole === role ? "text-primary" : "text-muted-foreground"}`} />
-                        <span className={selectedRole === role ? "font-medium text-foreground" : "text-muted-foreground"}>
+                        <config.icon
+                          className={`h-5 w-5 ${
+                            selectedRole === role
+                              ? "text-primary"
+                              : "text-muted-foreground"
+                          }`}
+                        />
+                        <span
+                          className={
+                            selectedRole === role
+                              ? "font-medium text-foreground"
+                              : "text-muted-foreground"
+                          }
+                        >
                           {config.label}
                         </span>
                       </button>
@@ -135,6 +161,7 @@ const handleLogin = async (e: React.FormEvent) => {
                 </div>
               </div>
 
+              {/* LOGIN TAB */}
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
@@ -165,6 +192,7 @@ const handleLogin = async (e: React.FormEvent) => {
                 </form>
               </TabsContent>
 
+              {/* SIGNUP TAB */}
               <TabsContent value="signup">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
@@ -199,6 +227,55 @@ const handleLogin = async (e: React.FormEvent) => {
                       required
                     />
                   </div>
+
+                  {/* DOCTOR EXTRA FIELDS */}
+                  {selectedRole === "doctor" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="specialty">Specialty</Label>
+                        <Input
+                          id="specialty"
+                          placeholder="e.g. Cardiologist"
+                          value={specialty}
+                          onChange={(e) => setSpecialty(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="experience">Experience (years)</Label>
+                        <Input
+                          id="experience"
+                          type="number"
+                          placeholder="e.g. 5"
+                          value={experience}
+                          onChange={(e) => setExperience(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="location">Location</Label>
+                        <Input
+                          id="location"
+                          placeholder="e.g. Mumbai"
+                          value={location}
+                          onChange={(e) => setLocation(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="consultation">Consultation Fee (₹)</Label>
+                        <Input
+                          id="consultation"
+                          type="number"
+                          placeholder="e.g. 500"
+                          value={consultation}
+                          onChange={(e) => setConsultation(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
+
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating Account..." : "Create Account"}
                   </Button>
