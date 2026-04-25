@@ -11,9 +11,13 @@ router.post("/register", async (req: Request, res: Response) => {
   const { name, email, password, role, specialty, experience, location, consultation } = req.body;
 
   try {
+    // 🚫 BLOCK ADMIN SIGNUP
+    if (role === "admin") {
+      return res.status(403).json({ error: "Admin registration not allowed" });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 1️⃣ Create user
     const user = await prisma.user.create({
       data: {
         name,
@@ -23,7 +27,6 @@ router.post("/register", async (req: Request, res: Response) => {
       },
     });
 
-    // 2️⃣ If doctor → create doctor profile
     if (role === "doctor") {
       await prisma.doctor.create({
         data: {
@@ -38,7 +41,6 @@ router.post("/register", async (req: Request, res: Response) => {
       });
     }
 
-    // 3️⃣ Generate token
     const token = jwt.sign(
       { userId: user.id },
       process.env.JWT_SECRET!,
@@ -52,10 +54,9 @@ router.post("/register", async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error("REGISTER ERROR:", error);  // 🔥 IMPORTANT
     res.status(500).json({ error: "Registration failed" });
   }
-});  
+});
 
 // ================= LOGIN =================
 router.post("/login", async (req: Request, res: Response) => {

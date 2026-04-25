@@ -1,3 +1,4 @@
+// src/pages/doctor/DoctorAppointments.tsx
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import API from "@/lib/api";
@@ -17,35 +18,40 @@ export default function DoctorAppointments() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    API.get("/appointments/doctor")
-      .then((res) => setAppointments(res.data))
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleAccept = async (id: number) => {
-    const handleAccept = async (id: number) => {
-  await API.patch(`/appointments/${id}/status`, {
-    status: "upcoming",
-  });
-};
-
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: "upcoming" } : a))
-    );
+  // ✅ Reusable fetch function — used on load and after accept/reject
+  const fetchAppointments = async () => {
+    try {
+      const res = await API.get("/appointments/doctor");
+      setAppointments(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = async (id: number) => {
-    const handleReject = async (id: number) => {
-  await API.patch(`/appointments/${id}/status`, {
-    status: "cancelled",
-  });
-};
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
 
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: "cancelled" } : a))
-    );
+  // ✅ Fixed — no more nested duplicate function, no more local state update
+  const handleAccept = async (id: number) => {
+    try {
+      await API.patch(`/appointments/${id}/status`, { status: "upcoming" });
+      await fetchAppointments(); // 🔥 refetch from backend
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ✅ Fixed — same pattern as handleAccept
+  const handleReject = async (id: number) => {
+    try {
+      await API.patch(`/appointments/${id}/status`, { status: "cancelled" });
+      await fetchAppointments(); // 🔥 refetch from backend
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const pending = appointments.filter((a) => a.status === "pending");
@@ -109,31 +115,39 @@ export default function DoctorAppointments() {
         <Tabs defaultValue="pending">
           <TabsList>
             <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
-            <TabsTrigger value="upcoming">
-              Upcoming ({upcoming.length})
-            </TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
             <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pending" className="mt-4 space-y-3">
-            {pending.map((a) => (
-              <AppointmentRow key={a.id} appt={a} />
-            ))}
-          </TabsContent>
+          {loading ? (
+            <p className="text-sm text-muted-foreground mt-4">Loading...</p>
+          ) : (
+            <>
+              <TabsContent value="pending" className="mt-4 space-y-3">
+                {pending.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No pending appointments.</p>
+                ) : (
+                  pending.map((a) => <AppointmentRow key={a.id} appt={a} />)
+                )}
+              </TabsContent>
 
-          <TabsContent value="upcoming" className="mt-4 space-y-3">
-            {upcoming.map((a) => (
-              <AppointmentRow key={a.id} appt={a} />
-            ))}
-          </TabsContent>
+              <TabsContent value="upcoming" className="mt-4 space-y-3">
+                {upcoming.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming appointments.</p>
+                ) : (
+                  upcoming.map((a) => <AppointmentRow key={a.id} appt={a} />)
+                )}
+              </TabsContent>
 
-          <TabsContent value="past" className="mt-4 space-y-3">
-            {past.map((a) => (
-              <AppointmentRow key={a.id} appt={a} />
-            ))}
-          </TabsContent>
-
-          {loading && <p>Loading...</p>}
+              <TabsContent value="past" className="mt-4 space-y-3">
+                {past.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No past appointments.</p>
+                ) : (
+                  past.map((a) => <AppointmentRow key={a.id} appt={a} />)
+                )}
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>
