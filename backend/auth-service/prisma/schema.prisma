@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://medibook:1234@localhost:3306/medibook_auth"
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  name     String
+  email    String @unique
+  password String
+  role     String @default("patient")
+
+  appointments Appointment[]
+}
+model Doctor {
+  id           Int     @id @default(autoincrement())
+  userId       Int     @unique
+  name         String
+  specialty    String
+  experience   Int
+  location     String
+  consultation Int
+  rating       Float   @default(4.5)
+  available    Boolean @default(true)
+  isActive     Boolean @default(true) // 🔥 ADD THIS
+
+  appointments Appointment[]
+  availability Availability[]
+}
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  doctorId  Int
+  date      String
+  time String
+  status    String   @default("pending")
+
+  user      User     @relation(fields: [userId], references: [id])
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+}
+model Availability {
+  id        Int      @id @default(autoincrement())
+  doctorId  Int
+  date      String
+  time      String
+  available Boolean  @default(true)
+
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+}
