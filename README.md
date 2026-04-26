@@ -184,6 +184,7 @@ npx prisma db push
 ```
 Run backend locally:
 ```
+```
 npm run dev
 ```
 Backend runs on:
