@@ -157,7 +157,7 @@ datasource db {
 Do not hardcode the database URL inside schema.prisma.
 
 ## Local Development
-```
+
 1. Clone the repository
 ```
 git clone https://github.com/sumedhaCode/MediBook.git
@@ -205,7 +205,6 @@ VITE_API_URL=http://localhost:5000
 Run frontend locally:
 ```
 npm run dev
-```
 ```
 
 ## Backend Scripts
