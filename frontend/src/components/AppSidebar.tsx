@@ -34,7 +34,7 @@ const adminLinks = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Manage Doctors", url: "/admin/doctors", icon: Stethoscope },
   { title: "Manage Users", url: "/admin/users", icon: Users },
-  { title: "All Appointments", url: "/admin/appointments", icon: Calendar },
+  // ✅ "All Appointments" removed
 ];
 
 export function AppSidebar() {

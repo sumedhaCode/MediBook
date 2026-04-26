@@ -4,6 +4,7 @@ import authMiddleware, { adminOnly, AuthRequest } from "../middleware/auth.middl
 
 const router = Router();
 
+
 // ================= ADMIN STATS =================
 router.get("/stats", authMiddleware, adminOnly, async (req, res) => {
   try {
@@ -11,7 +12,9 @@ router.get("/stats", authMiddleware, adminOnly, async (req, res) => {
       where: { role: "patient" },
     });
 
-    const doctors = await prisma.doctor.count();
+    const doctors = await prisma.doctor.count({
+      where: { isActive: true }, // ✅ only active doctors
+    });
 
     res.json({
       users,
@@ -22,10 +25,14 @@ router.get("/stats", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
+
 // ================= GET ALL USERS =================
 router.get("/users", authMiddleware, adminOnly, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
+      where: {
+        role: "doctor", // ✅ ONLY doctors
+      },
       select: {
         id: true,
         name: true,
@@ -40,10 +47,15 @@ router.get("/users", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
+
 // ================= GET ALL DOCTORS =================
 router.get("/doctors", authMiddleware, adminOnly, async (req, res) => {
   try {
-    const doctors = await prisma.doctor.findMany();
+    const doctors = await prisma.doctor.findMany({
+      where: {
+        isActive: true, // 🔥 FIX — only show active doctors
+      },
+    });
 
     res.json(doctors);
   } catch (error) {
@@ -51,21 +63,23 @@ router.get("/doctors", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
+
 // ================= DELETE DOCTOR (SOFT DELETE) =================
 router.delete("/doctors/:id", authMiddleware, adminOnly, async (req, res) => {
   const { id } = req.params;
 
   try {
-    // ✅ Soft delete — marks doctor as inactive instead of removing from DB
     const doctor = await prisma.doctor.update({
       where: { id: Number(id) },
-      data: { isActive: false },
+      data: { isActive: false }, // 🔥 soft delete
     });
 
     res.json({
-      message: `${doctor.name} removed`,
+      message: `${doctor.name} removed successfully`,
     });
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Failed to remove doctor" });
   }
 });

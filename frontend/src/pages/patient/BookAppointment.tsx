@@ -17,31 +17,45 @@ export default function BookAppointment() {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [slots, setSlots] = useState<any[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  // ✅ Convert once at top — use this everywhere
+  const numericDoctorId = Number(doctorId);
 
   // 🔹 FETCH DOCTOR
   useEffect(() => {
-    if (!doctorId) return;
+    if (!numericDoctorId) return;
 
     API.get("/doctors")
       .then((res) => {
-        const found = res.data.find((d: any) => d.id === Number(doctorId));
-        setDoctor(found);
+        const found = res.data.find((d: any) => d.id === numericDoctorId);
+        setDoctor(found || null);
       })
       .catch((err) => console.error(err));
-  }, [doctorId]);
+  }, [numericDoctorId]);
 
-  // 🔹 FETCH SLOTS — uses doctorId directly (not doctor.userId)
+  // 🔹 FETCH SLOTS
   useEffect(() => {
-    if (!date || !doctorId) return;
+    if (!date || !numericDoctorId) return;
 
-    const formatted = date.toISOString().split("T")[0]; // e.g. "2026-03-24"
+    const formatted = date.toISOString().split("T")[0];
 
-    // ✅ Fixed: uses doctorId from URL params directly
-    API.get(`/availability/${doctorId}/${formatted}`)
-      .then((res) => setSlots(res.data))
-      .catch((err) => console.error(err));
+    console.log("Fetching slots for doctorId:", numericDoctorId, "date:", formatted);
 
-  }, [date, doctorId]);
+    setLoadingSlots(true);
+    setSlots([]); // ✅ clear old slots before fetching new ones
+
+    API.get(`/availability/${numericDoctorId}/${formatted}`, {
+      headers: { "Cache-Control": "no-cache" }, // ✅ prevents 304 cached response
+    })
+      .then((res) => {
+        console.log("Slots received:", res.data);
+        setSlots(res.data || []);
+      })
+      .catch((err) => console.error("Slots fetch error:", err))
+      .finally(() => setLoadingSlots(false));
+
+  }, [date, numericDoctorId]);
 
   // 🔹 BOOK APPOINTMENT
   const handleBook = async () => {
@@ -54,7 +68,7 @@ export default function BookAppointment() {
       const formatted = date.toISOString().split("T")[0];
 
       await API.post("/appointments", {
-        doctorId: Number(doctorId),
+        doctorId: numericDoctorId,
         date: formatted,
         time: selectedSlot,
       });
@@ -101,9 +115,7 @@ export default function BookAppointment() {
                 <p className="text-sm text-muted-foreground mt-2">
                   {doctor.location}
                 </p>
-                <p className="mt-2 font-semibold">
-                  ₹{doctor.consultation}
-                </p>
+                <p className="mt-2 font-semibold">₹{doctor.consultation}</p>
               </div>
             </CardContent>
           </Card>
@@ -117,7 +129,10 @@ export default function BookAppointment() {
               <Calendar
                 mode="single"
                 selected={date}
-                onSelect={setDate}
+                onSelect={(d) => {
+                  setSelectedSlot(null); // ✅ reset selected slot on date change
+                  setDate(d);
+                }}
                 disabled={(d) => d < new Date()}
               />
             </CardContent>
@@ -129,35 +144,37 @@ export default function BookAppointment() {
               <CardTitle>Select Time</CardTitle>
             </CardHeader>
             <CardContent>
-              {date ? (
-                <div className="grid grid-cols-2 gap-2">
-
-                  {slots.length === 0 && (
-                    <p className="text-sm text-muted-foreground col-span-2 text-center">
-                      No slots available
-                    </p>
-                  )}
-
-                  {slots.map((slot) => (
-                    <button
-                      key={slot.id}
-                      disabled={!slot.available}
-                      onClick={() => setSelectedSlot(slot.time)}
-                      className={cn(
-                        "p-2 rounded border text-sm",
-                        !slot.available && "opacity-40 cursor-not-allowed",
-                        selectedSlot === slot.time && "border-primary bg-secondary"
-                      )}
-                    >
-                      {slot.time}
-                    </button>
-                  ))}
-
-                </div>
-              ) : (
+              {!date ? (
                 <p className="text-center text-sm text-muted-foreground">
                   Select a date first
                 </p>
+              ) : loadingSlots ? (
+                <p className="text-center text-sm text-muted-foreground">
+                  Loading slots...
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {slots.length === 0 ? (
+                    <p className="text-sm text-muted-foreground col-span-2 text-center">
+                      No slots available for this date
+                    </p>
+                  ) : (
+                    slots.map((slot) => (
+                      <button
+                        key={slot.id}
+                        onClick={() => setSelectedSlot(slot.time)}
+                        className={cn(
+                          "p-2 rounded border text-sm transition-colors",
+                          selectedSlot === slot.time
+                            ? "border-primary bg-secondary font-medium"
+                            : "hover:border-primary/50"
+                        )}
+                      >
+                        {slot.time}
+                      </button>
+                    ))
+                  )}
+                </div>
               )}
 
               <Button

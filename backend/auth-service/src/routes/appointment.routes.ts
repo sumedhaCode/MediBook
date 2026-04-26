@@ -9,7 +9,7 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
   const { doctorId, date, time } = req.body;
 
   try {
-    // ❌ prevent double booking
+    // prevent double booking
     const exists = await prisma.appointment.findFirst({
       where: { doctorId, date, time },
     });
@@ -27,13 +27,9 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
       },
     });
 
-    // 🔥 BLOCK SLOT AFTER BOOKING
+    // BLOCK SLOT AFTER BOOKING
     await prisma.availability.updateMany({
-      where: {
-        doctorId,
-        date,
-        time,
-      },
+      where: { doctorId, date, time },
       data: { available: false },
     });
 
@@ -44,6 +40,7 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
     res.status(500).json({ error: "Failed to book appointment" });
   }
 });
+
 // GET MY APPOINTMENTS (PATIENT)
 router.get("/my", authMiddleware, async (req: AuthRequest, res) => {
   try {
@@ -78,12 +75,22 @@ router.get("/doctor", authMiddleware, async (req: AuthRequest, res) => {
         doctorId: doctor.id,
       },
       include: {
-        user: true,
+        // ✅ select only needed patient fields
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
 
+    console.log("Appointments sent:", appointments); // debug
     res.json(appointments);
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Failed to fetch doctor appointments" });
   }
 });
