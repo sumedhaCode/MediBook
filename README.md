@@ -41,7 +41,7 @@ Auth Service Running 🚀
 sumedhaCode/MediBook
 ```
 
-# Project Structure
+## Project Structure
 ```
 MediBook/
 ├── backend/
@@ -64,7 +64,7 @@ MediBook/
 
 ```
 
-# Tech Stack
+## Tech Stack
 Frontend
 React
 TypeScript
@@ -84,7 +84,7 @@ Database
 MySQL hosted on Railway
 
 
-# Deployment
+## Deployment
 Frontend
 
 The frontend is deployed as a Render Static Site.
@@ -99,7 +99,7 @@ Recommended frontend environment variable:
 VITE_API_URL=https://medibook-auth-service.onrender.com
 ```
 
-# Backend
+## Backend
 
 The backend is deployed as a Render Web Service.
 
@@ -121,7 +121,7 @@ Start command:
 npm start
 ```
 
-# Backend Environment Variables
+## Backend Environment Variables
 
 Set these in:
 ```
@@ -144,7 +144,7 @@ DATABASE_URL=mysql://user:password@localhost:3306/database
 
 localhost does not work on Render because it refers to the Render container itself, not your local machine or Railway database.
 
-# Prisma Configuration
+## Prisma Configuration
 
 The Prisma datasource must use the environment variable:
 ```
@@ -208,7 +208,7 @@ npm run dev
 ```
 ```
 
-# Backend Scripts
+## Backend Scripts
 
 Inside backend/auth-service/package.json:
 ``` 
@@ -221,21 +221,21 @@ Inside backend/auth-service/package.json:
 }
 ```
 
-# API Routes
+## API Routes
 
 Base backend URL:
 ```
 https://medibook-auth-service.onrender.com
 ```
 
-# Auth Routes
+## Auth Routes
 ```
 POST /api/auth/register
 POST /api/auth/login
 GET  /api/auth/me
 ```
 
-# Doctor Routes
+## Doctor Routes
 ```
 GET    /api/doctors
 POST   /api/doctors
@@ -243,7 +243,7 @@ PUT    /api/doctors/:id
 DELETE /api/doctors/:id
 ``` 
 
-# Appointment Routes
+## Appointment Routes
 ```
 GET    /api/appointments
 POST   /api/appointments
@@ -251,18 +251,18 @@ PUT    /api/appointments/:id
 DELETE /api/appointments/:id
 ``` 
 
-# Availability Routes
+## Availability Routes
 ```
 GET  /api/availability
 POST /api/availability
 ```
 
-# Admin Routes
+## Admin Routes
 ``` 
 /api/admin
 ```
 
-# Authentication
+## Authentication
 
 MediBook uses JWT-based authentication.
 
@@ -286,7 +286,7 @@ Protected routes require the token in the Authorization header:
 Authorization: Bearer <token>
 ```
 
-# User Roles
+## User Roles
 
 MediBook supports the following roles:
 ```
@@ -327,7 +327,7 @@ model User {
 }
 ```
 
-# Common Deployment Issues and Fixes
+## Common Deployment Issues and Fixes
 1. Prisma tries to connect to localhost
 
 Error:
@@ -427,7 +427,7 @@ Auth:
 JWT + bcrypt
 ```
 
-# Status
+## Status
 
 Deployment status:
 ```
