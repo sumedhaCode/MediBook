@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "@/lib/api";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -19,10 +19,37 @@ export default function BookAppointment() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  // ✅ Convert once at top — use this everywhere
   const numericDoctorId = Number(doctorId);
 
-  // 🔹 FETCH DOCTOR
+  const getFormattedDate = (value: Date) => {
+    return value.toISOString().split("T")[0];
+  };
+
+  const fetchSlots = useCallback(async () => {
+    if (!date || !numericDoctorId) return;
+
+    const formatted = getFormattedDate(date);
+
+    try {
+      setLoadingSlots(true);
+      setSlots([]);
+
+      const res = await API.get(`/availability/${numericDoctorId}/${formatted}`, {
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+
+      setSlots(res.data || []);
+    } catch (err) {
+      console.error("Slots fetch error:", err);
+      toast.error("Failed to load latest slots");
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [date, numericDoctorId]);
+
+  // Fetch doctor
   useEffect(() => {
     if (!numericDoctorId) return;
 
@@ -31,33 +58,37 @@ export default function BookAppointment() {
         const found = res.data.find((d: any) => d.id === numericDoctorId);
         setDoctor(found || null);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to load doctor");
+      });
   }, [numericDoctorId]);
 
-  // 🔹 FETCH SLOTS
+  // Fetch slots when date changes
+  useEffect(() => {
+    fetchSlots();
+  }, [fetchSlots]);
+
+  // Auto-refresh slots every 10 seconds while a date is selected
   useEffect(() => {
     if (!date || !numericDoctorId) return;
 
-    const formatted = date.toISOString().split("T")[0];
+    const interval = setInterval(() => {
+      fetchSlots();
+    }, 10000);
 
-    console.log("Fetching slots for doctorId:", numericDoctorId, "date:", formatted);
+    const handleFocus = () => {
+      fetchSlots();
+    };
 
-    setLoadingSlots(true);
-    setSlots([]); // ✅ clear old slots before fetching new ones
+    window.addEventListener("focus", handleFocus);
 
-    API.get(`/availability/${numericDoctorId}/${formatted}`, {
-      headers: { "Cache-Control": "no-cache" }, // ✅ prevents 304 cached response
-    })
-      .then((res) => {
-        console.log("Slots received:", res.data);
-        setSlots(res.data || []);
-      })
-      .catch((err) => console.error("Slots fetch error:", err))
-      .finally(() => setLoadingSlots(false));
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [date, numericDoctorId, fetchSlots]);
 
-  }, [date, numericDoctorId]);
-
-  // 🔹 BOOK APPOINTMENT
   const handleBook = async () => {
     if (!date || !selectedSlot) {
       toast.error("Please select a date and time slot");
@@ -65,7 +96,7 @@ export default function BookAppointment() {
     }
 
     try {
-      const formatted = date.toISOString().split("T")[0];
+      const formatted = getFormattedDate(date);
 
       await API.post("/appointments", {
         doctorId: numericDoctorId,
@@ -74,11 +105,17 @@ export default function BookAppointment() {
       });
 
       toast.success("Appointment booked!");
-      navigate("/patient/appointments");
 
+      // Refresh slots so booked time disappears/updates before navigating
+      await fetchSlots();
+
+      navigate("/patient/appointments");
     } catch (error) {
       console.error(error);
       toast.error("Booking failed");
+
+      // Refresh in case another patient booked the same slot first
+      await fetchSlots();
     }
   };
 
@@ -105,8 +142,6 @@ export default function BookAppointment() {
         </Button>
 
         <div className="grid lg:grid-cols-3 gap-6">
-
-          {/* Doctor Info */}
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
@@ -120,7 +155,6 @@ export default function BookAppointment() {
             </CardContent>
           </Card>
 
-          {/* Calendar */}
           <Card>
             <CardHeader>
               <CardTitle>Select Date</CardTitle>
@@ -130,7 +164,7 @@ export default function BookAppointment() {
                 mode="single"
                 selected={date}
                 onSelect={(d) => {
-                  setSelectedSlot(null); // ✅ reset selected slot on date change
+                  setSelectedSlot(null);
                   setDate(d);
                 }}
                 disabled={(d) => d < new Date()}
@@ -138,7 +172,6 @@ export default function BookAppointment() {
             </CardContent>
           </Card>
 
-          {/* Time Slots */}
           <Card>
             <CardHeader>
               <CardTitle>Select Time</CardTitle>
@@ -159,26 +192,42 @@ export default function BookAppointment() {
                       No slots available for this date
                     </p>
                   ) : (
-                    slots.map((slot) => (
-                      <button
-                        key={slot.id}
-                        onClick={() => setSelectedSlot(slot.time)}
-                        className={cn(
-                          "p-2 rounded border text-sm transition-colors",
-                          selectedSlot === slot.time
-                            ? "border-primary bg-secondary font-medium"
-                            : "hover:border-primary/50"
-                        )}
-                      >
-                        {slot.time}
-                      </button>
-                    ))
+                    slots.map((slot) => {
+                      const isUnavailable = slot.available === false;
+
+                      return (
+                        <button
+                          key={slot.id}
+                          disabled={isUnavailable}
+                          onClick={() => setSelectedSlot(slot.time)}
+                          className={cn(
+                            "p-2 rounded border text-sm transition-colors",
+                            selectedSlot === slot.time
+                              ? "border-primary bg-secondary font-medium"
+                              : "hover:border-primary/50",
+                            isUnavailable &&
+                              "opacity-50 cursor-not-allowed line-through"
+                          )}
+                        >
+                          {slot.time}
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               )}
 
               <Button
-                className="w-full mt-6"
+                variant="outline"
+                className="w-full mt-4"
+                onClick={fetchSlots}
+                disabled={!date || loadingSlots}
+              >
+                Refresh Slots
+              </Button>
+
+              <Button
+                className="w-full mt-3"
                 onClick={handleBook}
                 disabled={!date || !selectedSlot}
               >
@@ -186,7 +235,6 @@ export default function BookAppointment() {
               </Button>
             </CardContent>
           </Card>
-
         </div>
       </div>
     </DashboardLayout>

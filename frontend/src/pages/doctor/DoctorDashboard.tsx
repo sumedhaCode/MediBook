@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import API from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, Clock, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, Users, Clock, TrendingUp, RefreshCw } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
   upcoming: "bg-primary/10 text-primary border-primary/20",
@@ -17,24 +18,55 @@ export default function DoctorDashboard() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    API.get("/appointments/doctor")
-      .then((res) => {
-        setAppointments(res.data);
-      })
-      .catch((err) => {
-        console.error("Error fetching appointments", err);
-      })
-      .finally(() => setLoading(false));
+  const fetchAppointments = useCallback(async (showLoader = false) => {
+    try {
+      if (showLoader) {
+        setRefreshing(true);
+      }
+
+      const res = await API.get("/appointments/doctor", {
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+
+      setAppointments(res.data || []);
+    } catch (err) {
+      console.error("Error fetching appointments", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  // 🔹 Derived data (NO HARDCODE)
+  useEffect(() => {
+    fetchAppointments();
+
+    const interval = setInterval(() => {
+      fetchAppointments();
+    }, 10000);
+
+    const handleFocus = () => {
+      fetchAppointments();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [fetchAppointments]);
+
   const today = new Date().toISOString().split("T")[0];
 
   const todayAppointments = appointments.filter((a) => a.date === today);
   const pending = appointments.filter((a) => a.status === "pending");
-  const upcoming = appointments.filter((a) => a.status === "upcoming");
+  const upcoming = appointments.filter(
+    (a) => a.status === "upcoming" || a.status === "pending"
+  );
 
   const stats = [
     {
@@ -45,7 +77,9 @@ export default function DoctorDashboard() {
     },
     {
       label: "Total Patients",
-      value: new Set(appointments.map((a) => a.patientId)).size,
+      value: new Set(
+        appointments.map((a) => a.patientId || a.userId || a.patient?.id)
+      ).size,
       icon: Users,
       color: "text-primary",
     },
@@ -66,11 +100,25 @@ export default function DoctorDashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Doctor Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Welcome back, {user?.name}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              Doctor Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Welcome back, {user?.name}
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchAppointments(true)}
+            disabled={refreshing}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -107,15 +155,19 @@ export default function DoctorDashboard() {
                   >
                     <div>
                       <p className="font-medium text-foreground">
-                        {appt.patient?.name || "Patient"}
+                        {appt.patient?.name || appt.user?.name || "Patient"}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {appt.date} at {appt.time}
                       </p>
                     </div>
+
                     <Badge
                       variant="outline"
-                      className={statusStyles[appt.status]}
+                      className={
+                        statusStyles[appt.status] ||
+                        "bg-secondary text-foreground border-border"
+                      }
                     >
                       {appt.status}
                     </Badge>
