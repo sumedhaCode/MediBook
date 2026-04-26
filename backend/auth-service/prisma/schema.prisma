@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = "mysql://medibook:1234@localhost:3306/medibook_auth"
+  url      = env("DATABASE_URL")
 }
 
 model User {
