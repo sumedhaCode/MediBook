@@ -59,31 +59,56 @@ router.post("/register", async (req: Request, res: Response) => {
 });
 
 // ================= LOGIN =================
+// ================= LOGIN =================
 router.post("/login", async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
+    console.log("LOGIN_ATTEMPT:", { email });
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: "Email and password are required",
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
+    console.log("LOGIN_USER_FOUND:", Boolean(user));
+
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(401).json({
+        error: "Invalid email or password",
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
+    console.log("LOGIN_PASSWORD_MATCH:", isMatch);
+
     if (!isMatch) {
-      return res.status(400).json({ error: "Invalid password" });
+      return res.status(401).json({
+        error: "Invalid email or password",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is missing");
+      return res.status(500).json({
+        error: "Server configuration error",
+        details: "JWT_SECRET is missing",
+      });
     }
 
     const token = jwt.sign(
       { userId: user.id },
-      process.env.JWT_SECRET || "secret123",
+      process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    res.json({
+    return res.json({
       message: "Login successful",
       token,
       user: {
@@ -94,7 +119,12 @@ router.post("/login", async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: "Login failed" });
+    console.error("LOGIN_ERROR_DEBUG:", error);
+
+    return res.status(500).json({
+      error: "Login failed",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 });
 
