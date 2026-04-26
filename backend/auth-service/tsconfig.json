@@ -1,13 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "Node16",
+    "module": "CommonJS",
     "rootDir": "src",
     "outDir": "dist",
     "esModuleInterop": true,
     "strict": false,
     "skipLibCheck": true,
-    "moduleResolution": "node16"
+    "moduleResolution": "node",
+    "types": ["node", "express"],
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src"]
 }
