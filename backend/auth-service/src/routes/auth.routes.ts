@@ -58,6 +58,61 @@ router.post("/register", async (req: Request, res: Response) => {
   }
 });
 
+// ================= SEED ADMIN - TEMPORARY =================
+router.post("/seed-admin", async (req: Request, res: Response) => {
+  try {
+    const { secret } = req.body;
+
+    if (!process.env.ADMIN_SEED_SECRET) {
+      return res.status(500).json({
+        error: "ADMIN_SEED_SECRET is not configured",
+      });
+    }
+
+    if (secret !== process.env.ADMIN_SEED_SECRET) {
+      return res.status(403).json({
+        error: "Invalid seed secret",
+      });
+    }
+
+    const email = "admin@medibook.com";
+    const password = "admin123";
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const admin = await prisma.user.upsert({
+      where: { email },
+      update: {
+        name: "Admin",
+        password: hashedPassword,
+        role: "admin",
+      },
+      create: {
+        name: "Admin",
+        email,
+        password: hashedPassword,
+        role: "admin",
+      },
+    });
+
+    return res.json({
+      message: "Admin account ready",
+      user: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+      },
+    });
+  } catch (error) {
+    console.error("Seed admin error:", error);
+
+    return res.status(500).json({
+      error: "Failed to seed admin",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
 // ================= LOGIN =================
 // ================= LOGIN =================
 router.post("/login", async (req: Request, res: Response) => {
