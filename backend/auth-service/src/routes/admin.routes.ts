@@ -84,4 +84,6 @@ router.delete("/doctors/:id", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
+console.log("DATABASE_URL starts with:", process.env.DATABASE_URL?.slice(0, 30));
+
 export default router;
