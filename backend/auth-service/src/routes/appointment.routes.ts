@@ -9,35 +9,85 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
   const { doctorId, date, time } = req.body;
 
   try {
-    // prevent double booking
-    const exists = await prisma.appointment.findFirst({
-      where: { doctorId, date, time },
-    });
-
-    if (exists) {
-      return res.status(400).json({ error: "Slot already booked" });
+    if (!req.userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
     }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        userId: req.userId!,
-        doctorId,
-        date,
-        time,
-      },
+    if (!doctorId || !date || !time) {
+      return res.status(400).json({
+        error: "doctorId, date and time are required",
+      });
+    }
+
+    const parsedDoctorId = Number(doctorId);
+
+    if (Number.isNaN(parsedDoctorId)) {
+      return res.status(400).json({
+        error: "Invalid doctorId",
+      });
+    }
+
+    const appointment = await prisma.$transaction(async (tx) => {
+      // Atomically mark slot unavailable ONLY if it is still available.
+      // If two patients book at same time, only one request can update this row.
+      const slotUpdate = await tx.availability.updateMany({
+        where: {
+          doctorId: parsedDoctorId,
+          date,
+          time,
+          available: true,
+        },
+        data: {
+          available: false,
+        },
+      });
+
+      // count = 0 means slot is already unavailable or does not exist
+      if (slotUpdate.count !== 1) {
+        throw new Error("SLOT_ALREADY_BOOKED");
+      }
+
+      // Create appointment inside the same transaction
+      const createdAppointment = await tx.appointment.create({
+        data: {
+          userId: req.userId!,
+          doctorId: parsedDoctorId,
+          date,
+          time,
+          status: "pending",
+        },
+      });
+
+      return createdAppointment;
     });
 
-    // BLOCK SLOT AFTER BOOKING
-    await prisma.availability.updateMany({
-      where: { doctorId, date, time },
-      data: { available: false },
+    return res.status(201).json({
+      message: "Booked",
+      appointment,
     });
+  } catch (error: any) {
+    console.error("Book appointment error:", error);
 
-    res.json({ message: "Booked", appointment });
+    if (error.message === "SLOT_ALREADY_BOOKED") {
+      return res.status(409).json({
+        error: "Slot already booked. Please refresh slots.",
+        code: "SLOT_ALREADY_BOOKED",
+      });
+    }
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to book appointment" });
+    // Prisma unique constraint error from @@unique([doctorId, date, time])
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        error: "Slot already booked. Please refresh slots.",
+        code: "SLOT_ALREADY_BOOKED",
+      });
+    }
+
+    return res.status(500).json({
+      error: "Failed to book appointment",
+    });
   }
 });
 
@@ -53,9 +103,13 @@ router.get("/my", authMiddleware, async (req: AuthRequest, res) => {
       },
     });
 
-    res.json(appointments);
+    return res.json(appointments);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch appointments" });
+    console.error("Fetch my appointments error:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch appointments",
+    });
   }
 });
 
@@ -63,11 +117,15 @@ router.get("/my", authMiddleware, async (req: AuthRequest, res) => {
 router.get("/doctor", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const doctor = await prisma.doctor.findUnique({
-      where: { userId: req.userId! },
+      where: {
+        userId: req.userId!,
+      },
     });
 
     if (!doctor) {
-      return res.status(404).json({ error: "Doctor not found" });
+      return res.status(404).json({
+        error: "Doctor not found",
+      });
     }
 
     const appointments = await prisma.appointment.findMany({
@@ -75,7 +133,6 @@ router.get("/doctor", authMiddleware, async (req: AuthRequest, res) => {
         doctorId: doctor.id,
       },
       include: {
-        // ✅ select only needed patient fields
         user: {
           select: {
             id: true,
@@ -86,12 +143,13 @@ router.get("/doctor", authMiddleware, async (req: AuthRequest, res) => {
       },
     });
 
-    console.log("Appointments sent:", appointments); // debug
-    res.json(appointments);
-
+    return res.json(appointments);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to fetch doctor appointments" });
+    console.error("Fetch doctor appointments error:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch doctor appointments",
+    });
   }
 });
 
@@ -102,27 +160,37 @@ router.patch("/:id/status", authMiddleware, async (req: AuthRequest, res) => {
 
   try {
     const doctor = await prisma.doctor.findUnique({
-      where: { userId: req.userId! },
+      where: {
+        userId: req.userId!,
+      },
     });
 
     if (!doctor) {
-      return res.status(403).json({ error: "Not authorized" });
+      return res.status(403).json({
+        error: "Not authorized",
+      });
     }
 
     const appointment = await prisma.appointment.update({
       where: {
         id: Number(id),
       },
-      data: { status },
+      data: {
+        status,
+      },
     });
 
-    res.json({
+    return res.json({
       message: "Status updated",
       appointment,
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update status" });
+    console.error("Update appointment status error:", error);
+
+    return res.status(500).json({
+      error: "Failed to update status",
+    });
   }
 });
 
-export default router; 
+export default router;

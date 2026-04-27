@@ -31,17 +31,23 @@ model Doctor {
   appointments Appointment[]
   availability Availability[]
 }
+
 model Appointment {
   id        Int      @id @default(autoincrement())
   userId    Int
   doctorId  Int
   date      String
-  time String
+  time      String
   status    String   @default("pending")
 
   user      User     @relation(fields: [userId], references: [id])
   doctor    Doctor   @relation(fields: [doctorId], references: [id])
+
+  @@unique([doctorId, date, time], name: "unique_doctor_slot_booking")
+  @@index([userId])
+  @@index([doctorId])
 }
+
 model Availability {
   id        Int      @id @default(autoincrement())
   doctorId  Int
@@ -50,4 +56,7 @@ model Availability {
   available Boolean  @default(true)
 
   doctor    Doctor   @relation(fields: [doctorId], references: [id])
+
+  @@unique([doctorId, date, time], name: "unique_doctor_slot_availability")
+  @@index([doctorId])
 }
