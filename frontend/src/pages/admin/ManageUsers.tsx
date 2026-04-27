@@ -48,7 +48,7 @@ export default function ManageUsers() {
     <DashboardLayout>
       <div className="space-y-4">
         <div>
-          <h1 className="text-xl font-bold">Manage Users</h1>
+          <h1 className="text-xl font-bold">Users</h1>
 
           <p className="text-sm text-muted-foreground mt-1">
             Total users: <strong>{patients.length + doctors.length}</strong>

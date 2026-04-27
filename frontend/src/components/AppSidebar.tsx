@@ -33,7 +33,7 @@ const doctorLinks = [
 const adminLinks = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Manage Doctors", url: "/admin/doctors", icon: Stethoscope },
-  { title: "Manage Users", url: "/admin/users", icon: Users },
+  { title: "Users", url: "/admin/users", icon: Users },
   // ✅ "All Appointments" removed
 ];
 
