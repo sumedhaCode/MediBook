@@ -1,89 +1,58 @@
 import { Router } from "express";
 import prisma from "../config/prisma";
-import authMiddleware, { adminOnly, AuthRequest } from "../middleware/auth.middleware";
+import authMiddleware, { AuthRequest } from "../middleware/auth.middleware";
 
 const router = Router();
 
-
-// ================= ADMIN STATS =================
-router.get("/stats", authMiddleware, adminOnly, async (req, res) => {
+const requireAdmin = async (req: AuthRequest, res: any, next: any) => {
   try {
-    const users = await prisma.user.count({
-      where: { role: "patient" },
+    if (!req.userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
     });
 
-    const doctors = await prisma.doctor.count({
-      where: { isActive: true }, // ✅ only active doctors
-    });
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
 
-    res.json({
-      users,
-      doctors,
-    });
+    next();
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch stats" });
+    console.error("Admin check error:", error);
+    return res.status(500).json({ error: "Failed to verify admin" });
   }
-});
+};
 
-
-// ================= GET ALL USERS =================
-router.get("/users", authMiddleware, adminOnly, async (req, res) => {
+// GET ALL USERS FOR ADMIN
+router.get("/users", authMiddleware, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const users = await prisma.user.findMany({
       where: {
-        role: "doctor", // ✅ ONLY doctors
+        role: {
+          in: ["patient", "doctor"],
+        },
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        doctor: true,
+      },
+      orderBy: {
+        id: "desc",
       },
     });
 
-    res.json(users);
+    return res.json(users);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch users" });
+    console.error("Fetch users error:", error);
+    return res.status(500).json({
+      error: "Failed to fetch users",
+    });
   }
 });
-
-
-// ================= GET ALL DOCTORS =================
-router.get("/doctors", authMiddleware, adminOnly, async (req, res) => {
-  try {
-    const doctors = await prisma.doctor.findMany({
-      where: {
-        isActive: true, // 🔥 FIX — only show active doctors
-      },
-    });
-
-    res.json(doctors);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch doctors" });
-  }
-});
-
-
-// ================= DELETE DOCTOR (SOFT DELETE) =================
-router.delete("/doctors/:id", authMiddleware, adminOnly, async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const doctor = await prisma.doctor.update({
-      where: { id: Number(id) },
-      data: { isActive: false }, // 🔥 soft delete
-    });
-
-    res.json({
-      message: `${doctor.name} removed successfully`,
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to remove doctor" });
-  }
-});
-
-console.log("DATABASE_URL starts with:", process.env.DATABASE_URL?.slice(0, 30));
 
 export default router;
