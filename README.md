@@ -1,6 +1,6 @@
 # MediBook
 
-MediBook is a full-stack MERN/TypeScript appointment booking application for patients, doctors, and admins.
+MediBook is a full-stack appointment booking application for patients, doctors, and admins.
 
 The project includes:
 
