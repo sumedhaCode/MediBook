@@ -8,38 +8,88 @@ const router = Router();
 
 // ================= REGISTER =================
 router.post("/register", async (req: Request, res: Response) => {
-  const { name, email, password, role, specialty, experience, location, consultation } = req.body;
+  const {
+    name,
+    email,
+    password,
+    role,
+    specialty,
+    experience,
+    location,
+    consultation,
+  } = req.body;
 
   try {
     // 🚫 BLOCK ADMIN SIGNUP
     if (role === "admin") {
-      return res.status(403).json({ error: "Admin registration not allowed" });
+      return res.status(403).json({
+        error: "Admin registration not allowed",
+      });
+    }
+
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({
+        error: "Name, email, password and role are required",
+      });
+    }
+
+    if (role !== "patient" && role !== "doctor") {
+      return res.status(400).json({
+        error: "Invalid role",
+      });
+    }
+
+    if (role === "doctor") {
+      if (!specialty || !experience || !location || !consultation) {
+        return res.status(400).json({
+          error:
+            "Specialty, experience, location and consultation are required for doctor signup",
+        });
+      }
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        error: "User already exists",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role,
-      },
-    });
-
-    if (role === "doctor") {
-      await prisma.doctor.create({
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
         data: {
-          userId: user.id,
           name,
-          specialty,
-          experience,
-          location,
-          consultation,
-          available: true,
+          email,
+          password: hashedPassword,
+          role,
         },
       });
-    }
+
+      if (role === "doctor") {
+        await tx.doctor.create({
+          data: {
+            userId: createdUser.id,
+            name,
+            specialty: String(specialty).trim(),
+            experience: Number(experience),
+            location: String(location).trim(),
+            consultation: Number(consultation),
+            rating: 4.5,
+            available: true,
+            isActive: true,
+          },
+        });
+      }
+
+      return createdUser;
+    });
 
     const token = jwt.sign(
       { userId: user.id },
@@ -47,14 +97,23 @@ router.post("/register", async (req: Request, res: Response) => {
       { expiresIn: "1d" }
     );
 
-    res.json({
+    return res.status(201).json({
       message: "User registered successfully",
       token,
-      user,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
-
   } catch (error) {
-    res.status(500).json({ error: "Registration failed" });
+    console.error("REGISTER_ERROR:", error);
+
+    return res.status(500).json({
+      error: "Registration failed",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 });
 
@@ -75,13 +134,33 @@ router.post("/seed-admin", async (req: Request, res: Response) => {
       });
     }
 
-    const email = "admin@medibook.com";
-    const password = "admin123";
+    const email = process.env.ADMIN_EMAIL || "admin@medibook.com";
+    const password = process.env.ADMIN_PASSWORD;
+
+    if (!password) {
+      return res.status(500).json({
+        error: "ADMIN_PASSWORD is not configured",
+      });
+    }
+
+    const existingAdmin = await prisma.user.findFirst({
+      where: {
+        role: "admin",
+      },
+    });
+
+    if (existingAdmin && existingAdmin.email !== email) {
+      return res.status(409).json({
+        error: "An admin already exists",
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const admin = await prisma.user.upsert({
-      where: { email },
+      where: {
+        email,
+      },
       update: {
         name: "Admin",
         password: hashedPassword,
@@ -113,7 +192,7 @@ router.post("/seed-admin", async (req: Request, res: Response) => {
     });
   }
 });
-// ================= LOGIN =================
+
 // ================= LOGIN =================
 router.post("/login", async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -128,7 +207,9 @@ router.post("/login", async (req: Request, res: Response) => {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: {
+        email,
+      },
     });
 
     console.log("LOGIN_USER_FOUND:", Boolean(user));
@@ -151,6 +232,7 @@ router.post("/login", async (req: Request, res: Response) => {
 
     if (!process.env.JWT_SECRET) {
       console.error("JWT_SECRET is missing");
+
       return res.status(500).json({
         error: "Server configuration error",
         details: "JWT_SECRET is missing",
@@ -187,22 +269,29 @@ router.post("/login", async (req: Request, res: Response) => {
 router.get("/me", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.userId },
+      where: {
+        id: req.userId,
+      },
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({
+        error: "User not found",
+      });
     }
 
-    res.json({
+    return res.json({
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
     });
-
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch user" });
+    console.error("GET_ME_ERROR:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch user",
+    });
   }
 });
 

@@ -18,6 +18,8 @@ export default function BookAppointment() {
   const [slots, setSlots] = useState<any[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [booking, setBooking] = useState(false);
+  const [doctorLoading, setDoctorLoading] = useState(true);
 
   const numericDoctorId = Number(doctorId);
 
@@ -34,16 +36,20 @@ export default function BookAppointment() {
       setLoadingSlots(true);
       setSlots([]);
 
-      const res = await API.get(`/availability/${numericDoctorId}/${formatted}`, {
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      });
+      const res = await API.get(
+        `/availability/${numericDoctorId}/${formatted}`,
+        {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        }
+      );
 
-      setSlots(res.data || []);
+      setSlots(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Slots fetch error:", err);
       toast.error("Failed to load latest slots");
+      setSlots([]);
     } finally {
       setLoadingSlots(false);
     }
@@ -51,16 +57,31 @@ export default function BookAppointment() {
 
   // Fetch doctor
   useEffect(() => {
-    if (!numericDoctorId) return;
+    if (!numericDoctorId) {
+      setDoctorLoading(false);
+      return;
+    }
+
+    setDoctorLoading(true);
 
     API.get("/doctors")
       .then((res) => {
-        const found = res.data.find((d: any) => d.id === numericDoctorId);
+        const doctors = Array.isArray(res.data) ? res.data : [];
+        const found = doctors.find((d: any) => Number(d.id) === numericDoctorId);
+
         setDoctor(found || null);
+
+        if (!found) {
+          toast.error("Doctor not found");
+        }
       })
       .catch((err) => {
-        console.error(err);
+        console.error("Doctor fetch error:", err);
         toast.error("Failed to load doctor");
+        setDoctor(null);
+      })
+      .finally(() => {
+        setDoctorLoading(false);
       });
   }, [numericDoctorId]);
 
@@ -96,6 +117,8 @@ export default function BookAppointment() {
     }
 
     try {
+      setBooking(true);
+
       const formatted = getFormattedDate(date);
 
       await API.post("/appointments", {
@@ -106,24 +129,53 @@ export default function BookAppointment() {
 
       toast.success("Appointment booked!");
 
-      // Refresh slots so booked time disappears/updates before navigating
       await fetchSlots();
 
       navigate("/patient/appointments");
-    } catch (error) {
-      console.error(error);
-      toast.error("Booking failed");
+    } catch (error: any) {
+      console.error("Booking error:", error);
 
-      // Refresh in case another patient booked the same slot first
+      const status = error?.response?.status;
+      const code = error?.response?.data?.code;
+      const backendError = error?.response?.data?.error;
+
+      if (status === 409 || code === "SLOT_ALREADY_BOOKED") {
+        toast.error(
+          "This slot was just booked by someone else. Please refresh slots and choose another time."
+        );
+
+        setSelectedSlot(null);
+        await fetchSlots();
+        return;
+      }
+
+      toast.error(backendError || "Booking failed");
+
       await fetchSlots();
+    } finally {
+      setBooking(false);
     }
   };
 
-  if (!doctor) {
+  if (doctorLoading) {
     return (
       <DashboardLayout>
         <div className="text-center py-12 text-muted-foreground">
           Loading doctor...
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!doctor) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-4 text-center py-12">
+          <p className="text-muted-foreground">Doctor not found.</p>
+
+          <Button onClick={() => navigate("/patient/dashboard")}>
+            Back to Dashboard
+          </Button>
         </div>
       </DashboardLayout>
     );
@@ -146,10 +198,13 @@ export default function BookAppointment() {
             <CardContent className="pt-6">
               <div className="text-center">
                 <h2 className="text-xl font-bold">{doctor.name}</h2>
+
                 <p className="text-primary">{doctor.specialty}</p>
+
                 <p className="text-sm text-muted-foreground mt-2">
                   {doctor.location}
                 </p>
+
                 <p className="mt-2 font-semibold">₹{doctor.consultation}</p>
               </div>
             </CardContent>
@@ -159,6 +214,7 @@ export default function BookAppointment() {
             <CardHeader>
               <CardTitle>Select Date</CardTitle>
             </CardHeader>
+
             <CardContent>
               <Calendar
                 mode="single"
@@ -167,7 +223,15 @@ export default function BookAppointment() {
                   setSelectedSlot(null);
                   setDate(d);
                 }}
-                disabled={(d) => d < new Date()}
+                disabled={(d) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+
+                  const selectedDate = new Date(d);
+                  selectedDate.setHours(0, 0, 0, 0);
+
+                  return selectedDate < today;
+                }}
               />
             </CardContent>
           </Card>
@@ -176,6 +240,7 @@ export default function BookAppointment() {
             <CardHeader>
               <CardTitle>Select Time</CardTitle>
             </CardHeader>
+
             <CardContent>
               {!date ? (
                 <p className="text-center text-sm text-muted-foreground">
@@ -194,19 +259,21 @@ export default function BookAppointment() {
                   ) : (
                     slots.map((slot) => {
                       const isUnavailable = slot.available === false;
+                      const isSelected = selectedSlot === slot.time;
 
                       return (
                         <button
                           key={slot.id}
-                          disabled={isUnavailable}
+                          disabled={isUnavailable || booking}
                           onClick={() => setSelectedSlot(slot.time)}
                           className={cn(
                             "p-2 rounded border text-sm transition-colors",
-                            selectedSlot === slot.time
+                            isSelected
                               ? "border-primary bg-secondary font-medium"
                               : "hover:border-primary/50",
                             isUnavailable &&
-                              "opacity-50 cursor-not-allowed line-through"
+                              "opacity-50 cursor-not-allowed line-through",
+                            booking && "opacity-70 cursor-not-allowed"
                           )}
                         >
                           {slot.time}
@@ -221,17 +288,17 @@ export default function BookAppointment() {
                 variant="outline"
                 className="w-full mt-4"
                 onClick={fetchSlots}
-                disabled={!date || loadingSlots}
+                disabled={!date || loadingSlots || booking}
               >
-                Refresh Slots
+                {loadingSlots ? "Refreshing..." : "Refresh Slots"}
               </Button>
 
               <Button
                 className="w-full mt-3"
                 onClick={handleBook}
-                disabled={!date || !selectedSlot}
+                disabled={!date || !selectedSlot || booking}
               >
-                Confirm Booking
+                {booking ? "Booking..." : "Confirm Booking"}
               </Button>
             </CardContent>
           </Card>

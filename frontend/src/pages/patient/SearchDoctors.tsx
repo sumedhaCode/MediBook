@@ -1,7 +1,7 @@
 // src/pages/patient/SearchDoctors.tsx
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import API from "@/lib/api"; // ✅ use your configured instance, not raw axios
+import API from "@/lib/api";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -26,48 +26,91 @@ interface Doctor {
   consultation?: number;
   rating?: number;
   available?: boolean;
+  isActive?: boolean;
 }
 
 export default function SearchDoctors() {
   const { user } = useAuth();
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [loading, setLoading] = useState(true); // ✅ loading state added
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [specialization, setSpecialization] = useState("All");
 
+  const normalizeSpecialty = (value?: string) => {
+    return value?.trim().toLowerCase() || "";
+  };
+
+  const fetchDoctors = async () => {
+    try {
+      setLoading(true);
+
+      const res = await API.get("/doctors", {
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+
+      const data = Array.isArray(res.data) ? res.data : [];
+
+      setDoctors(data);
+    } catch (error) {
+      console.error("Failed to fetch doctors", error);
+      setDoctors([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDoctors = async () => {
-      try {
-        const res = await API.get("/doctors"); // ✅ token auto-attached
-        setDoctors(res.data || []);
-      } catch (error) {
-        console.error("Failed to fetch doctors", error);
-      } finally {
-        setLoading(false); // ✅ always stop loading
-      }
+    fetchDoctors();
+
+    const handleFocus = () => {
+      fetchDoctors();
     };
 
-    fetchDoctors();
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
   }, []);
 
+  const uniqueSpecialties = [
+    "All",
+    ...Array.from(
+      new Map(
+        doctors
+          .filter((doctor) => doctor.specialty && doctor.specialty.trim())
+          .map((doctor) => [
+            normalizeSpecialty(doctor.specialty),
+            doctor.specialty!.trim(),
+          ])
+      ).values()
+    ),
+  ];
+
   const filtered = doctors.filter((doc) => {
-    const matchesSearch = doc.name
-      ?.toLowerCase()
-      .includes(search.toLowerCase());
+    const matchesSearch =
+      doc.name?.toLowerCase().includes(search.toLowerCase()) ||
+      doc.specialty?.toLowerCase().includes(search.toLowerCase()) ||
+      doc.location?.toLowerCase().includes(search.toLowerCase());
+
     const matchesSpec =
-      specialization === "All" || doc.specialty === specialization;
+      specialization === "All" ||
+      normalizeSpecialty(doc.specialty) === normalizeSpecialty(specialization);
+
     return matchesSearch && matchesSpec;
   });
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-
         <div>
           <h1 className="text-2xl font-bold text-foreground">
             Welcome {user?.name || "User"}!
           </h1>
+
           <p className="text-muted-foreground mt-1">
             Find a Doctor — Search from our network of verified specialists
           </p>
@@ -76,8 +119,9 @@ export default function SearchDoctors() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
             <Input
-              placeholder="Search by doctor name..."
+              placeholder="Search by doctor name, specialty or location..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -85,23 +129,24 @@ export default function SearchDoctors() {
           </div>
 
           <Select value={specialization} onValueChange={setSpecialization}>
-            <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="All Specializations" />
             </SelectTrigger>
+
             <SelectContent>
-              <SelectItem value="All">All</SelectItem>
-              {[...new Set(doctors.map((d) => d.specialty).filter(Boolean))].map(
-                (spec, index) => (
-                  <SelectItem key={index} value={spec as string}>
-                    {spec}
-                  </SelectItem>
-                )
-              )}
+              {uniqueSpecialties.map((spec) => (
+                <SelectItem key={spec} value={spec}>
+                  {spec}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+
+          <Button variant="outline" onClick={fetchDoctors} disabled={loading}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </Button>
         </div>
 
-        {/* ✅ Show loading spinner while fetching */}
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">
             Loading doctors...
@@ -124,14 +169,17 @@ export default function SearchDoctors() {
                       <h3 className="font-semibold text-foreground truncate">
                         {doctor.name}
                       </h3>
+
                       <p className="text-sm text-primary font-medium">
                         {doctor.specialty || "Specialist"}
                       </p>
+
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
                           {doctor.location || "India"}
                         </span>
+
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {doctor.experience || 0} yrs exp
@@ -146,6 +194,7 @@ export default function SearchDoctors() {
                         <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                         {doctor.rating ?? 4.5}
                       </span>
+
                       <span className="text-sm font-semibold">
                         ₹{doctor.consultation ?? 0}
                       </span>
@@ -157,6 +206,7 @@ export default function SearchDoctors() {
                       ) : (
                         <Badge variant="outline">Unavailable</Badge>
                       )}
+
                       <Link to={`/patient/book/${doctor.id}`}>
                         <Button size="sm" disabled={!doctor.available}>
                           Book
@@ -175,7 +225,6 @@ export default function SearchDoctors() {
             )}
           </>
         )}
-
       </div>
     </DashboardLayout>
   );
