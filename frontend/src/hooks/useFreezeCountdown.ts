@@ -1,26 +1,29 @@
 import { useEffect, useState } from "react";
 
+function getSecondsLeft(expiresAt: Date | null) {
+  if (!expiresAt) return 0;
+
+  return Math.max(
+    0,
+    Math.ceil((expiresAt.getTime() - Date.now()) / 1000)
+  );
+}
+
 export function useFreezeCountdown(expiresAt: Date | null) {
-  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    getSecondsLeft(expiresAt)
+  );
 
   useEffect(() => {
+    setSecondsLeft(getSecondsLeft(expiresAt));
+
     if (!expiresAt) {
-      setSecondsLeft(0);
       return;
     }
 
-    const updateCountdown = () => {
-      const diff = Math.max(
-        0,
-        Math.ceil((expiresAt.getTime() - Date.now()) / 1000)
-      );
-
-      setSecondsLeft(diff);
-    };
-
-    updateCountdown();
-
-    const intervalId = window.setInterval(updateCountdown, 1000);
+    const intervalId = window.setInterval(() => {
+      setSecondsLeft(getSecondsLeft(expiresAt));
+    }, 1000);
 
     return () => {
       window.clearInterval(intervalId);
@@ -35,6 +38,6 @@ export function useFreezeCountdown(expiresAt: Date | null) {
   return {
     secondsLeft,
     formatted,
-    expired: expiresAt !== null && secondsLeft === 0,
+    expired: expiresAt !== null && secondsLeft <= 0,
   };
 }

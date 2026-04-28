@@ -93,32 +93,27 @@ export default function BookAppointment() {
   }, [fetchSlots]);
 
   useEffect(() => {
-    if (!date || !numericDoctorId) return;
+  if (!date || !numericDoctorId) return;
 
-    const interval = setInterval(() => {
-      fetchSlots();
-    }, 10000);
+  const handleFocus = () => {
+    fetchSlots();
+  };
 
-    const handleFocus = () => {
-      fetchSlots();
-    };
+  window.addEventListener("focus", handleFocus);
 
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [date, numericDoctorId, fetchSlots]);
+  return () => {
+    window.removeEventListener("focus", handleFocus);
+  };
+}, [date, numericDoctorId, fetchSlots]);
 
   useEffect(() => {
-    if (expired && selectedSlot) {
-      toast.error("Your 5-minute hold expired. Please select the slot again.");
-      setSelectedSlot(null);
-      setFreezeExpiresAt(null);
-      fetchSlots();
-    }
-  }, [expired, selectedSlot, fetchSlots]);
+  if (freezeExpiresAt && expired && selectedSlot) {
+    toast.error("Your 5-minute hold expired. Please select the slot again.");
+    setSelectedSlot(null);
+    setFreezeExpiresAt(null);
+    fetchSlots();
+  }
+}, [freezeExpiresAt, expired, selectedSlot, fetchSlots]);
 
   const handleDateSelect = async (selectedDate: Date | undefined) => {
     await releaseFreeze();
@@ -397,12 +392,12 @@ export default function BookAppointment() {
               </Button>
 
               <Button
-                className="w-full mt-3"
-                onClick={handleBook}
-                disabled={!date || !selectedSlot || booking || expired}
-              >
-                {booking ? "Booking..." : "Confirm Booking"}
-              </Button>
+  className="w-full mt-3"
+  onClick={handleBook}
+  disabled={!date || !selectedSlot || !freezeExpiresAt || booking || secondsLeft <= 0}
+>
+  {booking ? "Booking..." : "Confirm Booking"}
+</Button>
             </CardContent>
           </Card>
         </div>
