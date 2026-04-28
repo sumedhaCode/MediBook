@@ -30,8 +30,33 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
     }
 
     const appointment = await prisma.$transaction(async (tx) => {
-      // Atomically mark slot unavailable ONLY if it is still available.
-      // If two patients book at same time, only one request can update this row.
+      const now = new Date();
+
+      // 1. Check that this user owns a valid freeze for this slot
+      const freeze = await tx.slotFreeze.findUnique({
+        where: {
+          unique_doctor_slot_freeze: {
+            doctorId: parsedDoctorId,
+            date,
+            time,
+          },
+        },
+      });
+
+      if (!freeze) {
+        throw new Error("FREEZE_REQUIRED");
+      }
+
+      if (freeze.userId !== req.userId) {
+        throw new Error("FREEZE_NOT_OWNED_BY_USER");
+      }
+
+      if (freeze.expiresAt <= now) {
+        throw new Error("FREEZE_EXPIRED");
+      }
+
+      // 2. Atomically mark slot unavailable ONLY if it is still available.
+      // If two patients book at the same time, only one request can update this row.
       const slotUpdate = await tx.availability.updateMany({
         where: {
           doctorId: parsedDoctorId,
@@ -49,7 +74,7 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
         throw new Error("SLOT_ALREADY_BOOKED");
       }
 
-      // Create appointment inside the same transaction
+      // 3. Create appointment inside the same transaction
       const createdAppointment = await tx.appointment.create({
         data: {
           userId: req.userId!,
@@ -57,6 +82,17 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
           date,
           time,
           status: "pending",
+        },
+      });
+
+      // 4. Delete freeze after successful booking
+      await tx.slotFreeze.delete({
+        where: {
+          unique_doctor_slot_freeze: {
+            doctorId: parsedDoctorId,
+            date,
+            time,
+          },
         },
       });
 
@@ -69,6 +105,23 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
     });
   } catch (error: any) {
     console.error("Book appointment error:", error);
+
+    if (
+      error.message === "FREEZE_REQUIRED" ||
+      error.message === "FREEZE_NOT_OWNED_BY_USER"
+    ) {
+      return res.status(423).json({
+        error: "Please select the slot again before booking.",
+        code: "FREEZE_REQUIRED",
+      });
+    }
+
+    if (error.message === "FREEZE_EXPIRED") {
+      return res.status(423).json({
+        error: "Your 5-minute slot hold expired. Please select the slot again.",
+        code: "FREEZE_EXPIRED",
+      });
+    }
 
     if (error.message === "SLOT_ALREADY_BOOKED") {
       return res.status(409).json({
