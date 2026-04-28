@@ -83,14 +83,18 @@ export default function BookAppointment() {
   }, [date, numericDoctorId, fetchSlots]);
 
   // Clear selection when freeze expires
-  useEffect(() => {
-    if (freezeExpiresAt && expired && selectedSlot) {
-      toast.error("Your 5-minute hold expired. Please select the slot again.");
-      setSelectedSlot(null);
-      setFreezeExpiresAt(null);
-      fetchSlots();
-    }
-  }, [freezeExpiresAt, expired, selectedSlot, fetchSlots]);
+useEffect(() => {
+  if (!freezeExpiresAt || !selectedSlot || !expired) return;
+
+  const msLeft = freezeExpiresAt.getTime() - Date.now();
+
+  if (msLeft > 10_000) return;
+
+  toast.error("Your 5-minute hold expired. Please select the slot again.");
+  setSelectedSlot(null);
+  setFreezeExpiresAt(null);
+  fetchSlots();
+}, [freezeExpiresAt, expired, selectedSlot, fetchSlots]);
 
   const handleDateSelect = async (selectedDate: Date | undefined) => {
     await releaseFreeze();
@@ -358,12 +362,12 @@ if (result.success === false) {
                   selected and freeze is set, only block if actively booking or
                   if the freeze actually expired. This is what was blocking the button. */}
               <Button
-                className="w-full mt-3"
-                onClick={handleBook}
-                disabled={!date || !selectedSlot || expired || booking}
-              >
-                {booking ? "Booking..." : "Confirm Booking"}
-              </Button>
+  className="w-full mt-3"
+  onClick={handleBook}
+  disabled={!date || !selectedSlot || !freezeExpiresAt || booking}
+>
+  {booking ? "Booking..." : "Confirm Booking"}
+</Button>
             </CardContent>
           </Card>
         </div>

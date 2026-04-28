@@ -38,6 +38,6 @@ export function useFreezeCountdown(expiresAt: Date | null) {
   return {
     secondsLeft,
     formatted,
-    expired: expiresAt !== null && secondsLeft <= 0,
+    expired: expiresAt !== null && secondsLeft === 0,
   };
 }
