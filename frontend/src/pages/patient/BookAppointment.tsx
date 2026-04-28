@@ -28,7 +28,8 @@ export default function BookAppointment() {
   const numericDoctorId = Number(doctorId);
 
   const { freezeSlot, releaseFreeze } = useSlotFreeze();
-  const { secondsLeft, formatted, expired } = useFreezeCountdown(freezeExpiresAt);
+  const { secondsLeft, formatted, expired } =
+    useFreezeCountdown(freezeExpiresAt);
 
   const getFormattedDate = (value: Date) => {
     return value.toISOString().split("T")[0];
@@ -41,7 +42,6 @@ export default function BookAppointment() {
 
     try {
       setLoadingSlots(true);
-      setSlots([]);
 
       const res = await API.get(`/availability/${numericDoctorId}/${formatted}`, {
         headers: {
@@ -92,28 +92,30 @@ export default function BookAppointment() {
     fetchSlots();
   }, [fetchSlots]);
 
+  // Refresh only when user returns to this browser tab.
+  // Removed fast 10-second refresh because it was making the booking UI unstable.
   useEffect(() => {
-  if (!date || !numericDoctorId) return;
+    if (!date || !numericDoctorId) return;
 
-  const handleFocus = () => {
-    fetchSlots();
-  };
+    const handleFocus = () => {
+      fetchSlots();
+    };
 
-  window.addEventListener("focus", handleFocus);
+    window.addEventListener("focus", handleFocus);
 
-  return () => {
-    window.removeEventListener("focus", handleFocus);
-  };
-}, [date, numericDoctorId, fetchSlots]);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [date, numericDoctorId, fetchSlots]);
 
   useEffect(() => {
-  if (freezeExpiresAt && expired && selectedSlot) {
-    toast.error("Your 5-minute hold expired. Please select the slot again.");
-    setSelectedSlot(null);
-    setFreezeExpiresAt(null);
-    fetchSlots();
-  }
-}, [freezeExpiresAt, expired, selectedSlot, fetchSlots]);
+    if (freezeExpiresAt && expired && selectedSlot) {
+      toast.error("Your 5-minute hold expired. Please select the slot again.");
+      setSelectedSlot(null);
+      setFreezeExpiresAt(null);
+      fetchSlots();
+    }
+  }, [freezeExpiresAt, expired, selectedSlot, fetchSlots]);
 
   const handleDateSelect = async (selectedDate: Date | undefined) => {
     await releaseFreeze();
@@ -163,6 +165,9 @@ export default function BookAppointment() {
       setSelectedSlot(slot.time);
       setFreezeExpiresAt(result.expiresAt);
       toast.success("Slot held for 5 minutes. Confirm booking soon.");
+    } catch (error) {
+      console.error("Slot freeze error:", error);
+      toast.error("Could not hold this slot");
     } finally {
       setFreezingSlot(null);
     }
@@ -174,7 +179,14 @@ export default function BookAppointment() {
       return;
     }
 
-    if (expired || !freezeExpiresAt || secondsLeft <= 0) {
+    if (!freezeExpiresAt) {
+      toast.error("Please select the slot again before booking.");
+      setSelectedSlot(null);
+      await fetchSlots();
+      return;
+    }
+
+    if (expired || secondsLeft <= 0) {
       toast.error("Your slot hold expired. Please select the slot again.");
       setSelectedSlot(null);
       setFreezeExpiresAt(null);
@@ -223,7 +235,11 @@ export default function BookAppointment() {
         return;
       }
 
-      if (status === 423 || code === "FREEZE_EXPIRED") {
+      if (
+        status === 423 ||
+        code === "FREEZE_EXPIRED" ||
+        code === "FREEZE_REQUIRED"
+      ) {
         toast.error(
           backendError || "Your slot hold expired. Please select the slot again."
         );
@@ -347,6 +363,7 @@ export default function BookAppointment() {
                       return (
                         <button
                           key={slot.id || slot.time}
+                          type="button"
                           disabled={isUnavailable || booking || isFreezing}
                           onClick={() => handleSlotSelect(slot)}
                           className={cn(
@@ -368,7 +385,7 @@ export default function BookAppointment() {
                 </div>
               )}
 
-              {selectedSlot && freezeExpiresAt && !expired && (
+              {selectedSlot && freezeExpiresAt && (
                 <div
                   className={cn(
                     "mt-4 rounded border p-3 text-sm text-center",
@@ -392,12 +409,12 @@ export default function BookAppointment() {
               </Button>
 
               <Button
-  className="w-full mt-3"
-  onClick={handleBook}
-  disabled={!date || !selectedSlot || !freezeExpiresAt || booking || secondsLeft <= 0}
->
-  {booking ? "Booking..." : "Confirm Booking"}
-</Button>
+                className="w-full mt-3"
+                onClick={handleBook}
+                disabled={!date || !selectedSlot || !freezeExpiresAt || booking}
+              >
+                {booking ? "Booking..." : "Confirm Booking"}
+              </Button>
             </CardContent>
           </Card>
         </div>
