@@ -15,7 +15,10 @@ model User {
   role     String @default("patient")
 
   appointments Appointment[]
+  doctor       Doctor?
+  slotFreezes  SlotFreeze[]
 }
+
 model Doctor {
   id           Int     @id @default(autoincrement())
   userId       Int     @unique
@@ -26,22 +29,24 @@ model Doctor {
   consultation Int
   rating       Float   @default(4.5)
   available    Boolean @default(true)
-  isActive     Boolean @default(true) // 🔥 ADD THIS
+  isActive     Boolean @default(true)
 
+  user         User           @relation(fields: [userId], references: [id])
   appointments Appointment[]
   availability Availability[]
+  slotFreezes  SlotFreeze[]
 }
 
 model Appointment {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  doctorId  Int
-  date      String
-  time      String
-  status    String   @default("pending")
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  doctorId Int
+  date     String
+  time     String
+  status   String @default("pending")
 
-  user      User     @relation(fields: [userId], references: [id])
-  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  doctor Doctor @relation(fields: [doctorId], references: [id])
 
   @@unique([doctorId, date, time], name: "unique_doctor_slot_booking")
   @@index([userId])
@@ -49,14 +54,32 @@ model Appointment {
 }
 
 model Availability {
+  id        Int     @id @default(autoincrement())
+  doctorId  Int
+  date      String
+  time      String
+  available Boolean @default(true)
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+
+  @@unique([doctorId, date, time], name: "unique_doctor_slot_availability")
+  @@index([doctorId])
+}
+
+model SlotFreeze {
   id        Int      @id @default(autoincrement())
   doctorId  Int
   date      String
   time      String
-  available Boolean  @default(true)
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
-  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  doctor Doctor @relation(fields: [doctorId], references: [id])
 
-  @@unique([doctorId, date, time], name: "unique_doctor_slot_availability")
+  @@unique([doctorId, date, time], name: "unique_doctor_slot_freeze")
+  @@index([userId])
   @@index([doctorId])
+  @@index([expiresAt])
 }
