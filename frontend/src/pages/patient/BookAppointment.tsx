@@ -358,12 +358,12 @@ if (result.success === false) {
                   selected and freeze is set, only block if actively booking or
                   if the freeze actually expired. This is what was blocking the button. */}
               <Button
-  className="w-full mt-3"
-  onClick={handleBook}
-  disabled={!date || !selectedSlot || !freezeExpiresAt || booking}
->
-  {booking ? "Booking..." : "Confirm Booking"}
-</Button>
+                className="w-full mt-3"
+                onClick={handleBook}
+                disabled={!date || !selectedSlot || expired || booking}
+              >
+                {booking ? "Booking..." : "Confirm Booking"}
+              </Button>
             </CardContent>
           </Card>
         </div>
