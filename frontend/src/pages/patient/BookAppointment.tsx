@@ -28,6 +28,7 @@ export default function BookAppointment() {
   const numericDoctorId = Number(doctorId);
 
   const { freezeSlot, releaseFreeze } = useSlotFreeze();
+
   const { secondsLeft, formatted, expired } =
     useFreezeCountdown(freezeExpiresAt);
 
@@ -92,8 +93,6 @@ export default function BookAppointment() {
     fetchSlots();
   }, [fetchSlots]);
 
-  // Refresh only when user returns to this browser tab.
-  // Removed fast 10-second refresh because it was making the booking UI unstable.
   useEffect(() => {
     if (!date || !numericDoctorId) return;
 
@@ -251,7 +250,6 @@ export default function BookAppointment() {
       }
 
       toast.error(backendError || "Booking failed");
-
       await fetchSlots();
     } finally {
       setBooking(false);
